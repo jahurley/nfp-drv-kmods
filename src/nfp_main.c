@@ -411,12 +411,7 @@ nfp_net_fw_find(struct pci_dev *pdev, struct nfp_pf *pf)
 	if (fw)
 		return fw;
 
-	/* Finally try the card type and media */
-	if (!pf->eth_tbl) {
-		dev_err(&pdev->dev, "Error: can't identify media config\n");
-		return NULL;
-	}
-
+	/* Then try the card type */
 	fw_model = nfp_hwinfo_lookup(pf->hwinfo, "assembly.partno");
 	if (!fw_model) {
 		dev_err(&pdev->dev, "Error: can't read part number\n");
@@ -424,7 +419,17 @@ nfp_net_fw_find(struct pci_dev *pdev, struct nfp_pf *pf)
 	}
 
 	spc = ARRAY_SIZE(fw_name);
+	snprintf(fw_name, spc, "netronome/nic_%s.nffw", fw_model);
+	fw = nfp_net_fw_request(pdev, pf, fw_name);
+	if (fw)
+		return fw;
+
+	/* And finally add the media */
 	spc -= snprintf(fw_name, spc, "netronome/nic_%s", fw_model);
+	if (!pf->eth_tbl) {
+		dev_err(&pdev->dev, "Error: can't identify media config\n");
+		return NULL;
+	}
 
 	for (i = 0; spc > 0 && i < pf->eth_tbl->count; i += j) {
 		port = &pf->eth_tbl->ports[i];
@@ -1007,6 +1012,8 @@ MODULE_FIRMWARE("netronome/nic_AMDA0097-0001_8x10.nffw");
 MODULE_FIRMWARE("netronome/nic_AMDA0099-0001_2x10.nffw");
 MODULE_FIRMWARE("netronome/nic_AMDA0099-0001_2x25.nffw");
 MODULE_FIRMWARE("netronome/nic_AMDA0099-0001_1x10_1x25.nffw");
+MODULE_FIRMWARE("netronome/nic_AMDA0998-0001.nffw");
+MODULE_FIRMWARE("netronome/nic_AMDA0999-0001.nffw");
 
 MODULE_AUTHOR("Netronome Systems <oss-drivers@netronome.com>");
 MODULE_LICENSE("GPL");
