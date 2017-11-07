@@ -803,14 +803,13 @@ static int nfp_net_prep_port_id(struct sk_buff *skb)
 	if (unlikely(md_dst->type != METADATA_HW_PORT_MUX))
 		return 0;
 
-	if (unlikely(skb_cow_head(skb, 8)))
+	if (unlikely(skb_cow_head(skb, sizeof(md_dst->u.port_info.port_id))))
 		return -ENOMEM;
 
-	data = skb_push(skb, 8);
-	put_unaligned_be32(NFP_NET_META_PORTID, data);
-	put_unaligned_be32(md_dst->u.port_info.port_id, data + 4);
+	data = skb_push(skb, sizeof(md_dst->u.port_info.port_id));
+	put_unaligned_be32(md_dst->u.port_info.port_id, data);
 
-	return 8;
+	return sizeof(md_dst->u.port_info.port_id);
 }
 #else
 static int nfp_net_prep_port_id(struct sk_buff *skb)
@@ -818,6 +817,40 @@ static int nfp_net_prep_port_id(struct sk_buff *skb)
 	return 0;
 }
 #endif
+
+static int nfp_net_prep_tx_meta(struct nfp_app *app, struct sk_buff *skb)
+{
+	int res, md_bytes, shift = 0;
+	unsigned char *data;
+	u32 meta_id = 0;
+
+	res = nfp_net_prep_port_id(skb);
+	if (unlikely(res < 0))
+		return res;
+	if (res) {
+		meta_id = NFP_NET_META_PORTID;
+		shift = NFP_NET_META_FIELD_SIZE;
+	}
+	md_bytes = res;
+
+	res = nfp_net_prep_app_meta(app, skb);
+	if (unlikely(res < 0))
+		return res;
+	if (res)
+		meta_id = (meta_id << shift) | NFP_NET_META_APP;
+	md_bytes += res;
+
+	if (!md_bytes)
+		return 0;
+
+	if (unlikely(skb_cow_head(skb, sizeof(meta_id))))
+		return -ENOMEM;
+
+	data = skb_push(skb, sizeof(meta_id));
+	put_unaligned_be32(meta_id, data);
+
+	return md_bytes + sizeof(meta_id);
+}
 
 /**
  * nfp_net_tx() - Main transmit entry point
@@ -860,18 +893,12 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
 		return NETDEV_TX_BUSY;
 	}
 
-	md_bytes = nfp_net_prep_port_id(skb);
-	if (unlikely(md_bytes < 0)) {
-		nfp_net_tx_xmit_more_flush(tx_ring);
-		dev_kfree_skb_any(skb);
-		return NETDEV_TX_OK;
-	}
+	md_bytes = nfp_net_prep_tx_meta(nn->app, skb);
+	if (unlikely(md_bytes < 0))
+		goto exit_flush;
 
-	if (unlikely(compat_ndo_features_check(nn, skb))) {
-		nfp_net_tx_xmit_more_flush(tx_ring);
-		dev_kfree_skb_any(skb);
-		return NETDEV_TX_OK;
-	}
+	if (unlikely(compat_ndo_features_check(nn, skb)))
+		goto exit_flush;
 
 	/* Start with the head skbuf */
 	dma_addr = dma_map_single(dp->dev, skb->data, skb_headlen(skb),
@@ -977,6 +1004,11 @@ err_free:
 	u64_stats_update_begin(&r_vec->tx_sync);
 	r_vec->tx_errors++;
 	u64_stats_update_end(&r_vec->tx_sync);
+	dev_kfree_skb_any(skb);
+	return NETDEV_TX_OK;
+
+exit_flush:
+	nfp_net_tx_xmit_more_flush(tx_ring);
 	dev_kfree_skb_any(skb);
 	return NETDEV_TX_OK;
 }
@@ -1515,10 +1547,13 @@ static void *
 nfp_net_parse_meta(struct net_device *netdev, struct nfp_meta_parsed *meta,
 		   void *data, int meta_len)
 {
+	struct nfp_net *nn;
+	int processed;
 	u32 meta_info;
 
 	meta_info = get_unaligned_be32(data);
 	data += 4;
+	meta_len -= 4;
 
 	while (meta_info) {
 		switch (meta_info & NFP_NET_META_FIELD_MASK) {
@@ -1528,20 +1563,33 @@ nfp_net_parse_meta(struct net_device *netdev, struct nfp_meta_parsed *meta,
 					 meta_info & NFP_NET_META_FIELD_MASK,
 					 (__be32 *)data);
 			data += 4;
+			meta_len -= 4;
 			break;
 		case NFP_NET_META_MARK:
 			meta->mark = get_unaligned_be32(data);
 			data += 4;
+			meta_len -= 4;
 			break;
 		case NFP_NET_META_PORTID:
 			meta->portid = get_unaligned_be32(data);
 			data += 4;
+			meta_len -= 4;
 			break;
 		case NFP_NET_META_CSUM:
 			meta->csum_type = CHECKSUM_COMPLETE;
 			meta->csum =
 				(__force __wsum)__get_unaligned_cpu32(data);
 			data += 4;
+			meta_len -= 4;
+			break;
+		case NFP_NET_META_APP:
+			nn = netdev_priv(netdev);
+			processed = nfp_app_parse_meta(nn->app, netdev, meta,
+						       data, meta_len);
+			if (processed < 0)
+				return NULL;
+			data += processed;
+			meta_len -= processed;
 			break;
 		default:
 			return NULL;
@@ -1851,6 +1899,13 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
 					       le16_to_cpu(rxd->rxd.vlan));
 		if (meta_len_xdp)
 			skb_metadata_set(skb, meta_len_xdp);
+
+		if (meta.app_meta_desc) {
+			struct nfp_net *nn;
+
+			nn = netdev_priv(dp->netdev);
+			nfp_app_skb_set_meta(nn->app, skb, &meta);
+		}
 
 		napi_gro_receive(&rx_ring->r_vec->napi, skb);
 	}

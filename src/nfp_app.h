@@ -105,6 +105,10 @@ extern const struct nfp_app_type app_flower;
  * @sriov_enable: app-specific sriov initialisation
  * @sriov_disable: app-specific sriov clean-up
  * @repr_get:	get representor netdev
+ * @parse_meta:	parse and store packet metadata. All metadata validation is
+ *		expected to occur here.
+ * @skb_set_meta:	set skb metadata parsed with @parse_meta
+ * @prep_tx_meta:	prepend TX metadata to skb
  */
 struct nfp_app_type {
 	enum nfp_app_id id;
@@ -154,6 +158,13 @@ struct nfp_app_type {
 
 	enum devlink_eswitch_mode (*eswitch_mode_get)(struct nfp_app *app);
 	struct net_device *(*repr_get)(struct nfp_app *app, u32 id);
+
+	int (*parse_meta)(struct nfp_app *app, struct net_device *netdev,
+			  struct nfp_meta_parsed *meta, char *data,
+			  int meta_len);
+	void (*skb_set_meta)(struct nfp_app *app, struct sk_buff *skb,
+			     struct nfp_meta_parsed *meta);
+	int (*prep_tx_meta)(struct nfp_app *app, struct sk_buff *skb);
 };
 
 /**
@@ -401,6 +412,32 @@ static inline struct net_device *nfp_app_repr_get(struct nfp_app *app, u32 id)
 		return NULL;
 
 	return app->type->repr_get(app, id);
+}
+
+static inline int
+nfp_app_parse_meta(struct nfp_app *app, struct net_device *netdev,
+		   struct nfp_meta_parsed *meta, char *data, int meta_len)
+{
+	if (!app || !app->type->parse_meta)
+		return -EOPNOTSUPP;
+	return app->type->parse_meta(app, netdev, meta, data, meta_len);
+}
+
+static inline void
+nfp_app_skb_set_meta(struct nfp_app *app, struct sk_buff *skb,
+		     struct nfp_meta_parsed *meta)
+{
+	if (!app || !app->type->skb_set_meta)
+		return;
+	app->type->skb_set_meta(app, skb, meta);
+}
+
+static inline int
+nfp_net_prep_app_meta(struct nfp_app *app, struct sk_buff *skb)
+{
+	if (!app || !app->type->prep_tx_meta)
+		return 0;
+	return app->type->prep_tx_meta(app, skb);
 }
 
 struct nfp_app *nfp_app_from_netdev(struct net_device *netdev);
