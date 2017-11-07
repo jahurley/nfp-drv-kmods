@@ -109,6 +109,8 @@ extern const struct nfp_app_type app_flower;
  *		expected to occur here.
  * @skb_set_meta:	set skb metadata parsed with @parse_meta
  * @prep_tx_meta:	prepend TX metadata to skb
+ * @repr_vlan_rx_add_vid:	registering VLAN id
+ * @repr_vlan_rx_kill_vid:	unregistering VLAN id
  */
 struct nfp_app_type {
 	enum nfp_app_id id;
@@ -165,6 +167,13 @@ struct nfp_app_type {
 	void (*skb_set_meta)(struct nfp_app *app, struct sk_buff *skb,
 			     struct nfp_meta_parsed *meta);
 	int (*prep_tx_meta)(struct nfp_app *app, struct sk_buff *skb);
+
+	int (*repr_vlan_rx_add_vid)(struct nfp_app *app,
+				    struct net_device *netdev, __be16 proto,
+				    u16 vid);
+	int (*repr_vlan_rx_kill_vid)(struct nfp_app *app,
+				     struct net_device *netdev, __be16 proto,
+				     u16 vid);
 };
 
 /**
@@ -438,6 +447,24 @@ nfp_net_prep_app_meta(struct nfp_app *app, struct sk_buff *skb)
 	if (!app || !app->type->prep_tx_meta)
 		return 0;
 	return app->type->prep_tx_meta(app, skb);
+}
+
+static inline int
+nfp_app_repr_vlan_rx_add_vid(struct nfp_app *app, struct net_device *netdev,
+			     __be16 proto, u16 vid)
+{
+	if (!app->type->repr_vlan_rx_add_vid)
+		return 0;
+	return app->type->repr_vlan_rx_add_vid(app, netdev, proto, vid);
+}
+
+static inline int
+nfp_app_repr_vlan_rx_kill_vid(struct nfp_app *app, struct net_device *netdev,
+			      __be16 proto, u16 vid)
+{
+	if (!app->type->repr_vlan_rx_kill_vid)
+		return 0;
+	return app->type->repr_vlan_rx_kill_vid(app, netdev, proto, vid);
 }
 
 struct nfp_app *nfp_app_from_netdev(struct net_device *netdev);

@@ -271,6 +271,22 @@ err_port_disable:
 	return err;
 }
 
+static inline int
+nfp_repr_vlan_rx_add_vid(struct net_device *netdev, __be16 proto, u16 vid)
+{
+	struct nfp_repr *repr = netdev_priv(netdev);
+
+	return nfp_app_repr_vlan_rx_add_vid(repr->app, netdev, proto, vid);
+}
+
+static inline int
+nfp_repr_vlan_rx_kill_vid(struct net_device *netdev, __be16 proto, u16 vid)
+{
+	struct nfp_repr *repr = netdev_priv(netdev);
+
+	return nfp_app_repr_vlan_rx_kill_vid(repr->app, netdev, proto, vid);
+}
+
 const struct net_device_ops nfp_repr_netdev_ops = {
 	.ndo_open		= nfp_repr_open,
 	.ndo_stop		= nfp_repr_stop,
@@ -279,6 +295,8 @@ const struct net_device_ops nfp_repr_netdev_ops = {
 	.ndo_get_stats64	= nfp_repr_get_stats64,
 	.ndo_has_offload_stats	= nfp_repr_has_offload_stats,
 	.ndo_get_offload_stats	= nfp_repr_get_offload_stats,
+	.ndo_vlan_rx_add_vid	= nfp_repr_vlan_rx_add_vid,
+	.ndo_vlan_rx_kill_vid	= nfp_repr_vlan_rx_kill_vid,
 	.ndo_get_phys_port_name	= nfp_port_get_phys_port_name,
 	.ndo_setup_tc		= nfp_port_setup_tc,
 	.ndo_set_vf_mac		= nfp_app_set_vf_mac,
@@ -340,6 +358,10 @@ int nfp_repr_init(struct nfp_app *app, struct net_device *netdev,
 		netdev->features |= NETIF_F_HW_TC;
 		netdev->hw_features |= NETIF_F_HW_TC;
 	}
+	netdev->features |= NETIF_F_HW_VLAN_CTAG_FILTER |
+			NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX;
+	netdev->hw_features |= NETIF_F_HW_VLAN_CTAG_FILTER |
+			NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX;
 
 	err = nfp_app_repr_init(app, netdev);
 	if (err)
