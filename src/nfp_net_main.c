@@ -717,6 +717,12 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
 	INIT_WORK(&pf->port_refresh_work, nfp_net_refresh_vnics);
 
 	if (!pf->rtbl) {
+		if (!pf->fw_loaded && nfp_cppcore_pcie_unit(pf->cpp)) {
+			nfp_info(pf->cpp,
+				 "Defering probe, waiting for partner.\n");
+			return -EPROBE_DEFER;
+		}
+
 		nfp_err(pf->cpp, "No %s, giving up.\n",
 			pf->fw_loaded ? "symbol table" : "firmware found");
 		return 1;
