@@ -1,0 +1,22 @@
+##  This file provides Linux kernel build rules, for executing within the
+##  Kbuild environment.
+##
+
+ccflags-y := $(CFLAGS_EXTRA)
+
+# un-comment for debug symbols
+# ccflags-y += -g3
+
+# This only holds true for the original repo location
+nfp_drv_dir := $(src)/../../../src
+
+ccflags-y += $(call cc-option, -Wenum-compare,)
+ccflags-y += $(call cc-option, -Wmaybe-uninitialized,)
+ccflags-y += $(call cc-option, -Wno-missing-include-dirs,)
+ccflags-y += -I$(nfp_drv_dir)
+ccflags-y += -I$(nfp_drv_dir)/mbl
+KBUILD_EXTRA_SYMBOLS += $(nfp_drv_dir)/Module.symvers
+
+nfp_ualt-objs := \
+  main.o
+obj-m += nfp_ualt.o
