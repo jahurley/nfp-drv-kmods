@@ -119,7 +119,19 @@ static inline int nfp_repr_get_port_id(struct net_device *netdev)
 {
 	struct nfp_repr *priv = netdev_priv(netdev);
 
+	ASSERT_RTNL();
 	return priv->dst->u.port_info.port_id;
+}
+
+static inline void
+nfp_repr_set_port_id(struct net_device *netdev, u32 cmsg_port_id)
+{
+	struct nfp_repr *priv = netdev_priv(netdev);
+
+	ASSERT_RTNL();
+	netif_tx_lock(netdev);
+	priv->dst->u.port_info.port_id = cmsg_port_id;
+	netif_tx_unlock(netdev);
 }
 
 struct net_device *
