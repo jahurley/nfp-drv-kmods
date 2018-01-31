@@ -116,6 +116,7 @@ extern const struct nfp_app_type app_flower;
  * @repr_vlan_rx_add_vid:	registering VLAN id
  * @repr_vlan_rx_kill_vid:	unregistering VLAN id
  * @repr_set_mac_address:	MAC address change has been requested
+ * @repr_xmit:	hook called during repr xmit call
  */
 struct nfp_app_type {
 	enum nfp_app_id id;
@@ -185,6 +186,9 @@ struct nfp_app_type {
 
 	int (*repr_set_mac_address)(struct nfp_app *app,
 				    struct net_device *netdev, void *addr);
+
+	int (*repr_xmit)(struct nfp_app *app, struct sk_buff *skb,
+			 struct nfp_repr *repr);
 };
 
 /**
@@ -472,6 +476,15 @@ nfp_net_prep_app_meta(struct nfp_app *app, struct sk_buff *skb)
 	if (!app || !app->type->prep_tx_meta)
 		return 0;
 	return app->type->prep_tx_meta(app, skb);
+}
+
+static inline int
+nfp_app_repr_xmit(struct nfp_app *app, struct sk_buff *skb,
+		  struct nfp_repr *repr)
+{
+	if (unlikely(!app->type->repr_xmit))
+		return 0;
+	return app->type->repr_xmit(repr->app, skb, repr);
 }
 
 static inline int
