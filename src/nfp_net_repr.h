@@ -134,6 +134,26 @@ nfp_repr_set_port_id(struct net_device *netdev, u32 cmsg_port_id)
 	netif_tx_unlock(netdev);
 }
 
+static inline struct net_device *
+nfp_repr_get_lower_dev(struct net_device *netdev)
+{
+	struct nfp_repr *priv = netdev_priv(netdev);
+
+	ASSERT_RTNL();
+	return priv->dst->u.port_info.lower_dev;
+}
+
+static inline void
+nfp_repr_set_lower_dev(struct net_device *netdev, struct net_device *pf_netdev)
+{
+	struct nfp_repr *priv = netdev_priv(netdev);
+
+	ASSERT_RTNL();
+	netif_tx_lock(netdev);
+	priv->dst->u.port_info.lower_dev = pf_netdev;
+	netif_tx_unlock(netdev);
+}
+
 struct net_device *
 nfp_repr_get_locked(struct nfp_app *app, struct nfp_reprs *set,
 		    unsigned int id);
