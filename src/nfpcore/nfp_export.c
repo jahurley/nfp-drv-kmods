@@ -132,3 +132,4 @@ EXPORT_SYMBOL(nfp_rtsym_table_read);
 EXPORT_SYMBOL(nfp_rtsym_count);
 EXPORT_SYMBOL(nfp_rtsym_get);
 EXPORT_SYMBOL(nfp_rtsym_lookup);
+EXPORT_SYMBOL(nfp_rtsym_read_le);
