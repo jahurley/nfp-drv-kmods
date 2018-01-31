@@ -57,6 +57,9 @@ static const struct nfp_app_type *apps[] = {
 #ifdef CONFIG_NFP_APP_FLOWER
 	[NFP_APP_FLOWER_NIC]	= &app_flower,
 #endif
+#ifdef CONFIG_NFP_APP_MBL
+	[NFP_APP_MBL]		= &app_mbl,
+#endif
 #else
 	NULL,
 #endif

@@ -183,12 +183,16 @@ ifneq (,$(filter y,$(CONFIG_NFP_NET_PF) $(CONFIG_NFP_NET_VF)))
 		flower/offload.o \
 		flower/main.o \
 		flower/tunnel_conf.o
+
+	  ccflags-y += -DCONFIG_NFP_APP_MBL
+	  nfp-objs += \
+		mbl/main.o
 	else
-          $(warning NFP: CONFIG_NET_SWITCHDEV not enabled in the kernel, disabling apps: flower)
+          $(warning NFP: CONFIG_NET_SWITCHDEV not enabled in the kernel, disabling apps: flower, mbl)
 	endif
       else
-        $(warning NFP: RHEL kernel detected, disabling apps: flower)
-        $(warning Please contact Netronome Support if the flower app is required.)
+        $(warning NFP: RHEL kernel detected, disabling apps: flower, mbl)
+        $(warning Please contact Netronome Support if these app are required.)
       endif
     endif
   endif
