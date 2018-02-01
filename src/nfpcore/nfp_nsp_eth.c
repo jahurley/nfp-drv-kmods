@@ -68,6 +68,7 @@
 #define NSP_ETH_STATE_ENABLED		BIT_ULL(1)
 #define NSP_ETH_STATE_TX_ENABLED	BIT_ULL(2)
 #define NSP_ETH_STATE_RX_ENABLED	BIT_ULL(3)
+#define NSP_ETH_STATE_LINK		BIT_ULL(4)
 #define NSP_ETH_STATE_RATE		GENMASK_ULL(11, 8)
 #define NSP_ETH_STATE_INTERFACE		GENMASK_ULL(19, 12)
 #define NSP_ETH_STATE_MEDIA		GENMASK_ULL(21, 20)
@@ -175,6 +176,7 @@ nfp_eth_port_translate(struct nfp_nsp *nsp, const union eth_table_entry *src,
 	dst->enabled = FIELD_GET(NSP_ETH_STATE_ENABLED, state);
 	dst->tx_enabled = FIELD_GET(NSP_ETH_STATE_TX_ENABLED, state);
 	dst->rx_enabled = FIELD_GET(NSP_ETH_STATE_RX_ENABLED, state);
+	dst->link = FIELD_GET(NSP_ETH_STATE_LINK, state);
 
 	rate = nfp_eth_rate2speed(FIELD_GET(NSP_ETH_STATE_RATE, state));
 	dst->speed = dst->lanes * rate;

@@ -114,6 +114,7 @@ enum nfp_eth_fec {
  * @ports.enabled:	is enabled?
  * @ports.tx_enabled:	is TX enabled?
  * @ports.rx_enabled:	is RX enabled?
+ * @ports.link:	does port have link
  * @ports.override_changed: is media reconfig pending?
  *
  * @ports.port_type:	one of %PORT_* defines for ethtool
@@ -147,6 +148,7 @@ struct nfp_eth_table {
 		bool enabled;
 		bool tx_enabled;
 		bool rx_enabled;
+		bool link;
 
 		bool override_changed;
 
