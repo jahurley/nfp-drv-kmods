@@ -149,3 +149,14 @@ int nfp_ual_set_port_id(struct nfp_repr *repr, u32 port_id)
 
 	return 0;
 }
+
+/*
+ * nfp_ual_get_port_id() - get the port ID for a representor
+ * @repr:	representor pointer
+ *
+ * Return: representor ID
+ */
+int nfp_ual_get_port_id(struct nfp_repr *repr)
+{
+	return nfp_repr_get_port_id(repr->netdev);
+}

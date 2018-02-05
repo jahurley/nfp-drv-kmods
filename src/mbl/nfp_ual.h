@@ -141,4 +141,6 @@ int nfp_ual_register(const struct nfp_ual_ops *ops, void *cookie);
 void *nfp_ual_unregister(void);
 
 int nfp_ual_set_port_id(struct nfp_repr *repr, u32 port_id);
+int nfp_ual_get_port_id(struct nfp_repr *repr);
+
 #endif
