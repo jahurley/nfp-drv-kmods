@@ -46,6 +46,7 @@
  * @ref_count:	number of device contexts stored
  * @status:	status flag
  * @probe_dw: delayed work to check probe timeout status
+ * @link_timer: physical port link state timer
  * @init_count:	number of devices which are ready for UAL
  * @mbl_lock:	protect UAL initialization
  * @ual_ops:	store UAL callback structure
@@ -58,6 +59,7 @@ struct nfp_mbl_global_data {
 	enum nfp_mbl_status_type status;
 
 	struct delayed_work probe_dw;
+	struct timer_list link_timer;
 
 	int init_count;
 

@@ -50,7 +50,11 @@
 #include "nfp_port.h"
 #include "nfp_ual.h"
 
+/* Timeout in seconds to wait for more devices to probe. */
 #define NFP_MBL_PROBE_TIMEOUT	60
+
+/* Link state monitoring interval in ms */
+#define NFP_MBL_LINK_TIMER	750
 
 /* This is a global context data structure, shared by all NFP devices. */
 static struct nfp_mbl_global_data *ctx;
@@ -72,6 +76,23 @@ out_unlock:
 	mutex_unlock(&ctx->mbl_lock);
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
+static void nfp_mbl_phys_link_timer(unsigned long timer)
+#else
+static void nfp_mbl_phys_link_timer(struct timer_list *timer)
+#endif
+{
+	struct nfp_pf *pf;
+
+	if (!NFP_MBL_PRIMARY_DEV_CTX(ctx))
+		return;
+
+	pf = NFP_MBL_PRIMARY_DEV_CTX(ctx)->app->pf;
+
+	queue_work(pf->wq, &pf->port_refresh_work);
+	mod_timer(&ctx->link_timer, jiffies + NFP_MBL_LINK_TIMER * HZ / 1000);
+}
+
 static int nfp_mbl_alloc_global_ctx(void)
 {
 	if (ctx)
@@ -81,6 +102,7 @@ static int nfp_mbl_alloc_global_ctx(void)
 	if (!ctx)
 		return -ENOMEM;
 
+	timer_setup(&ctx->link_timer, nfp_mbl_phys_link_timer, 0);
 	INIT_DELAYED_WORK(&ctx->probe_dw, nfp_mbl_probe_work);
 	mutex_init(&ctx->mbl_lock);
 	return 0;
@@ -98,6 +120,8 @@ static void nfp_mbl_dealloc_ctx(int dev_index)
 
 	if (!ctx->ref_count) {
 		cancel_delayed_work_sync(&ctx->probe_dw);
+		del_timer_sync(&ctx->link_timer);
+
 		vfree(ctx);
 		ctx = NULL;
 	}
@@ -198,9 +222,6 @@ nfp_mbl_app_repr_netdev_open(struct nfp_app *app, struct nfp_repr *repr)
 		return err;
 
 	netif_tx_wake_all_queues(repr->netdev);
-
-	/* Hardcode until we implement the link state monitoring. */
-	netif_carrier_on(repr->netdev);
 	return 0;
 }
 
@@ -211,9 +232,6 @@ nfp_mbl_app_repr_netdev_stop(struct nfp_app *app, struct nfp_repr *repr)
 		return -EOPNOTSUPP;
 
 	netif_tx_disable(repr->netdev);
-
-	/* Hardcode until we implement the link state monitoring. */
-	netif_carrier_off(repr->netdev);
 
 	return ctx->ual_ops->repr_stop(ctx->ual_cookie, repr);
 }
@@ -576,7 +594,11 @@ static int nfp_mbl_app_init(struct nfp_app *app)
 				   NFP_MBL_PROBE_TIMEOUT * HZ);
 	mutex_unlock(&ctx->mbl_lock);
 
-	nfp_mbl_calc_device_count();
+	if (!timer_pending(&ctx->link_timer)) {
+		mod_timer(&ctx->link_timer,
+			  jiffies + NFP_MBL_LINK_TIMER * HZ / 1000);
+	}
+
 	return 0;
 
 err_dealloc_dev_ctx:
@@ -753,6 +775,7 @@ const struct nfp_app_type app_mbl = {
 	.id		= NFP_APP_MBL,
 	.name		= "mbl",
 	.ctrl_has_meta	= true,
+	.repr_link_from_eth = true,
 
 	.init		= nfp_mbl_app_init,
 	.clean		= nfp_mbl_app_clean,
