@@ -628,6 +628,18 @@ nfp_mbl_prep_tx_meta(struct nfp_app *app, struct sk_buff *skb)
 
 	return ctx->ual_ops->prep_tx_meta(ctx->ual_cookie, skb);
 }
+
+static void nfp_mbl_app_ctrl_msg_rx(struct nfp_app *app, struct sk_buff *skb)
+{
+	if (!ctx->ual_ops || !ctx->ual_ops->ctrl_msg_rx) {
+		pr_warn("discarding cmsg without handler\n");
+		dev_kfree_skb_any(skb);
+		return;
+	}
+
+	ctx->ual_ops->ctrl_msg_rx(ctx->ual_cookie, skb);
+}
+
 const struct nfp_app_type app_mbl = {
 	.id		= NFP_APP_MBL,
 	.name		= "mbl",
@@ -645,6 +657,8 @@ const struct nfp_app_type app_mbl = {
 
 	.repr_open	= nfp_mbl_app_repr_netdev_open,
 	.repr_stop	= nfp_mbl_app_repr_netdev_stop,
+
+	.ctrl_msg_rx	= nfp_mbl_app_ctrl_msg_rx,
 
 	.sriov_enable	= nfp_mbl_sriov_enable,
 	.sriov_disable	= nfp_mbl_sriov_disable,

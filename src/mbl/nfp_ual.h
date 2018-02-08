@@ -132,6 +132,7 @@ struct nfp_mbl_dev_ctx {
  *		expected to occur here.
  * @skb_set_meta: set skb metadata parsed with @parse_meta
  * @prep_tx_meta: prepend TX metadata to skb
+ * @ctrl_msg_rx: control message handler
  * @sriov_enable: app-specific sriov initialisation
  * @sriov_disable: app-specific sriov clean-up
  * @repr_change_mtu: MTU change on a netdev has been requested (veto-only,
@@ -155,6 +156,8 @@ struct nfp_ual_ops {
 	void (*skb_set_meta)(void *cookie, struct sk_buff *skb,
 			     struct nfp_meta_parsed *meta);
 	int (*prep_tx_meta)(void *cookie, struct sk_buff *skb);
+
+	void (*ctrl_msg_rx)(void *cookie, struct sk_buff *skb);
 
 	int (*sriov_enable)(void *cookie, struct nfp_mbl_dev_ctx *ctx,
 			    int num_vfs);
