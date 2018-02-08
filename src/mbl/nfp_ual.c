@@ -125,6 +125,21 @@ void *nfp_ual_unregister(void)
 }
 
 /**
+ * nfp_ual_get_cookie() - provide UAL access to the ual_cookie field
+ *
+ * Return: UAL cookie or NULL
+ */
+void *nfp_ual_get_cookie(void)
+{
+	struct nfp_mbl_global_data *ctx = nfp_mbl_get_global_ctx();
+
+	if (!ctx)
+		return NULL;
+
+	return ctx->ual_cookie;
+}
+
+/**
  * nfp_ual_set_port_id() - set the port ID for a representor
  * @repr:	representor pointer
  * @port_id:	new port ID, only allowed to specify UAL allocated space

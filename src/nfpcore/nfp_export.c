@@ -140,6 +140,7 @@ EXPORT_SYMBOL(nfp_rtsym_read_le);
 #ifdef CONFIG_NFP_APP_MBL
 EXPORT_SYMBOL(nfp_ual_register);
 EXPORT_SYMBOL(nfp_ual_unregister);
+EXPORT_SYMBOL(nfp_ual_get_cookie);
 EXPORT_SYMBOL(nfp_ual_set_port_id);
 EXPORT_SYMBOL(nfp_ual_get_port_id);
 EXPORT_SYMBOL(nfp_ual_select_tx_dev);
