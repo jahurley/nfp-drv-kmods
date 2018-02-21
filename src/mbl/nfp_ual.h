@@ -131,6 +131,7 @@ struct nfp_mbl_dev_ctx {
 /**
  * struct nfp_ual_ops - UAL operations
  * @name:	get UAL name
+ * @spawn_vf_reprs:	do we want the MBL to spawn VF representors for us?
  *
  * callbacks:
  * @init:	perform UAL init
@@ -154,6 +155,7 @@ struct nfp_mbl_dev_ctx {
  */
 struct nfp_ual_ops {
 	const char *name;
+	const bool spawn_vf_reprs;
 
 	int (*init)(void *cookie, enum nfp_mbl_status_type status);
 	void (*clean)(void *cookie);

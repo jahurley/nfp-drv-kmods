@@ -367,12 +367,14 @@ static int nfp_mbl_sriov_enable(struct nfp_app *app, int num_vfs)
 	if (!ctx->ual_ops)
 		return -EOPNOTSUPP;
 
-	if (!dev_ctx->nn)
-		return 0;
+	if (ctx->ual_ops->spawn_vf_reprs) {
+		if (!dev_ctx->nn)
+			return 0;
 
-	err = nfp_mbl_app_spawn_vnic_reprs(app, num_vfs);
-	if (err)
-		return err;
+		err = nfp_mbl_app_spawn_vnic_reprs(app, num_vfs);
+		if (err)
+			return err;
+	}
 
 	if (ctx->ual_ops->sriov_enable) {
 		err = ctx->ual_ops->sriov_enable(ctx->ual_cookie, dev_ctx,
