@@ -324,6 +324,7 @@ static int ualt_prep_tx_meta(void *cookie, struct sk_buff *skb)
 
 const struct nfp_ual_ops ops = {
 	.name = UALT_NAME,
+	.spawn_vf_reprs = false,
 
 	.init = ualt_init,
 	.clean = ualt_clean,
