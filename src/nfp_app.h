@@ -44,6 +44,7 @@
 #include <trace/events/devlink.h>
 #endif
 
+#include "nfpcore/nfp_cpp.h"
 #include "nfp_net_repr.h"
 
 struct bpf_prog;
@@ -297,7 +298,8 @@ static inline const char *nfp_app_name(struct nfp_app *app)
 
 static inline bool nfp_app_needs_ctrl_vnic(struct nfp_app *app)
 {
-	return app && app->type->ctrl_msg_rx;
+	return app && app->type->ctrl_msg_rx &&
+		(nfp_cppcore_pcie_unit(app->cpp) == 0);
 }
 
 static inline bool nfp_app_ctrl_has_meta(struct nfp_app *app)
