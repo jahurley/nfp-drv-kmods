@@ -41,6 +41,7 @@
 #include <net/dst_metadata.h>
 
 #include "main.h"
+#include "nfpcore/nfp.h"
 #include "nfpcore/nfp_cpp.h"
 #include "nfpcore/nfp_nsp.h"
 #include "nfp_app.h"
@@ -483,8 +484,25 @@ static void nfp_mbl_repr_clean(struct nfp_app *app, struct net_device *netdev)
 
 static int nfp_mbl_calc_device_count(void)
 {
-	/* multi-PCIe support not yet available */
-	return 1;
+	struct nfp_mbl_dev_ctx *primary;
+	const char *value;
+	int iter, count;
+	char name[16];
+
+	primary = NFP_MBL_PRIMARY_DEV_CTX(ctx);
+	if (!primary)
+		return -ENODEV;
+
+	count = 0;
+	for (iter = 0; iter < NFP_MBL_DEV_ID_MAX; iter++) {
+		snprintf(name, sizeof(name), "pcie%u.type", iter);
+		value = nfp_hwinfo_lookup(primary->app->pf->hwinfo, name);
+		if (value)
+			count++;
+	}
+
+	/* XXX: Port expanders are not taken into consideration yet. */
+	return count;
 }
 
 static void nfp_mbl_app_init_complete(struct nfp_app *app)
