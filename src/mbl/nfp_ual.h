@@ -201,6 +201,8 @@ int nfp_ual_select_tx_dev(struct nfp_repr *repr, u8 pcie_unit);
 struct sk_buff *nfp_ual_ctrl_msg_alloc(unsigned int size, gfp_t priority);
 bool nfp_ual_ctrl_tx(struct sk_buff *skb);
 
+int nfp_ual_get_pcie_unit_count(u8 *bitmap);
+
 struct nfp_mbl_dev_ctx *nfp_ual_get_mbl_dev_ctx(int dev_index);
 static inline struct nfp_mbl_dev_ctx *
 nfp_ual_get_mbl_dev_ctx_from_netdev(struct net_device *netdev)
