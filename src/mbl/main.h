@@ -34,11 +34,25 @@
  #ifndef __NFP_MBL_H__
  #define __NFP_MBL_H__ 1
 
+#include "nfpcore/nfp_cpp.h"
+#include "nfp_app.h"
 #include "nfp_net_compat.h"
 #include "nfp_ual.h"
 
+struct nfp_cpp;
+
 #define NFP_MBL_PRIMARY_DEV_CTX(ctx) \
 	((ctx)->dev_ctx[NFP_MBL_DEV_INDEX_PRIMARY])
+
+#define nfp_mbl_err(dev_ctx, fmt, args...) \
+	nfp_err((dev_ctx)->app->cpp, "MBL dev#%d.%d: " fmt, (dev_ctx)->type, \
+		(dev_ctx)->pcie_unit, ## args)
+#define nfp_mbl_warn(dev_ctx, fmt, args...) \
+	nfp_warn((dev_ctx)->app->cpp, "MBL dev#%d.%d: " fmt, (dev_ctx)->type, \
+		 (dev_ctx)->pcie_unit, ## args)
+#define nfp_mbl_info(dev_ctx, fmt, args...) \
+	nfp_info((dev_ctx)->app->cpp, "MBL dev#%d.%d: " fmt, (dev_ctx)->type, \
+		 (dev_ctx)->pcie_unit, ## args)
 
 /**
  * struct nfp_mbl_global_data - global context data

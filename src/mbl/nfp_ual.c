@@ -52,8 +52,6 @@
 int nfp_ual_register(const struct nfp_ual_ops *ops, void *cookie)
 {
 	struct nfp_mbl_global_data *ctx;
-	struct nfp_mbl_dev_ctx *dev_ctx;
-	struct device *dev;
 	int err;
 
 	if (WARN_ON(!ops || !ops->name))
@@ -70,18 +68,17 @@ int nfp_ual_register(const struct nfp_ual_ops *ops, void *cookie)
 	ctx->ual_cookie = cookie;
 	ctx->ual_ops = ops;
 
-	dev_ctx = ctx->dev_ctx[NFP_MBL_DEV_INDEX_PRIMARY];
-	if (dev_ctx) {
-		dev = &dev_ctx->app->pf->pdev->dev;
-		dev_info(dev, "registered new UAL, %s\n", ctx->ual_ops->name);
-	}
-
 	err = nfp_mbl_try_init_ual();
 	if (err)
 		goto err_reset_ual;
 
 	mutex_unlock(&ctx->mbl_lock);
 	cancel_delayed_work_sync(&ctx->probe_dw);
+
+	if (NFP_MBL_PRIMARY_DEV_CTX(ctx)) {
+		nfp_mbl_info(NFP_MBL_PRIMARY_DEV_CTX(ctx),
+			     "registered new UAL, %s\n", ctx->ual_ops->name);
+	}
 	return 0;
 
 err_reset_ual:

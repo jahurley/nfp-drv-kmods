@@ -42,9 +42,7 @@
 
 #include "main.h"
 #include "nfpcore/nfp.h"
-#include "nfpcore/nfp_cpp.h"
 #include "nfpcore/nfp_nsp.h"
-#include "nfp_app.h"
 #include "nfp_main.h"
 #include "nfp_net.h"
 #include "nfp_net_repr.h"
@@ -67,7 +65,8 @@ static void nfp_mbl_probe_work(struct work_struct *work)
 		goto out_unlock;
 
 	if (ctx->status != NFP_MBL_STATUS_SUCCESS)
-		pr_warn("MBL timeout. Not all devices probed successfully.\n");
+		nfp_mbl_warn(NFP_MBL_PRIMARY_DEV_CTX(ctx),
+			     "timeout - not all devices probed successfully.\n");
 
 	/* If we hit this path, we have timed out. */
 	ctx->status = NFP_MBL_STATUS_TIMEOUT;
@@ -277,9 +276,9 @@ nfp_mbl_app_spawn_vnic_reprs(struct nfp_app *app, unsigned int cnt)
 			goto err_reprs_clean;
 		}
 
-		nfp_info(app->cpp,
-			 "VF%d Representor(%s) created with ID 0x%08x\n", i,
-			 repr->name, port_id);
+		nfp_mbl_info(dev_ctx,
+			     "VF%d Representor(%s) created with ID 0x%08x\n", i,
+			     repr->name, port_id);
 	}
 
 	nfp_app_reprs_set(app, NFP_REPR_TYPE_VF, reprs);
@@ -347,8 +346,8 @@ nfp_mbl_app_spawn_phy_reprs(struct nfp_app *app)
 			goto err_reprs_clean;
 		}
 
-		nfp_info(app->cpp, "Phys Port %d Representor(%s) created with ID 0x%08x\n",
-			 phys_port, repr->name, port_id);
+		nfp_mbl_info(primary, "Phys Port %d Representor(%s) created with ID 0x%08x\n",
+			     phys_port, repr->name, port_id);
 	}
 
 	nfp_app_reprs_set(app, NFP_REPR_TYPE_PHYS_PORT, reprs);
@@ -407,8 +406,10 @@ static void nfp_mbl_sriov_disable(struct nfp_app *app)
 static int nfp_mbl_app_vnic_alloc(struct nfp_app *app, struct nfp_net *nn,
 				  unsigned int id)
 {
+	struct nfp_mbl_dev_ctx *dev_ctx = app->priv;
+
 	if (id > 0) {
-		nfp_warn(app->cpp, "MBL doesn't support more than one data vNIC per PCIe\n");
+		nfp_mbl_warn(dev_ctx, "only supports one data vNIC per PCIe\n");
 		goto err_invalid_port;
 	}
 
@@ -441,7 +442,7 @@ static int nfp_mbl_app_vnic_init(struct nfp_app *app, struct nfp_net *nn)
 	int err;
 
 	if (app->pf->num_vfs) {
-		nfp_err(app->cpp, "SR-IOV VFs must be disabled before initializing the MBL\n");
+		nfp_mbl_err(dev_ctx, "SR-IOV VFs must be disabled before initializing the MBL\n");
 		return -EOPNOTSUPP;
 	}
 
@@ -518,13 +519,13 @@ static void nfp_mbl_app_init_complete(struct nfp_app *app)
 		return;
 
 	if (dev_ctx->nn)
-		nfp_info(app->cpp,
-			 "registered device #%u.%u, data vNIC is %s\n",
-			 dev_ctx->type, dev_ctx->pcie_unit,
-			 dev_ctx->nn->dp.netdev->name);
+		nfp_mbl_info(dev_ctx,
+			     "registered device #%u.%u, data vNIC is %s\n",
+			     dev_ctx->type, dev_ctx->pcie_unit,
+			     dev_ctx->nn->dp.netdev->name);
 	else
-		nfp_info(app->cpp, "registered device #%u.%u\n",
-			 dev_ctx->type, dev_ctx->pcie_unit);
+		nfp_mbl_info(dev_ctx, "registered device #%u.%u\n",
+			     dev_ctx->type, dev_ctx->pcie_unit);
 
 	if (ctx->init_count >= need) {
 		mutex_lock(&ctx->mbl_lock);
@@ -542,9 +543,9 @@ static void nfp_mbl_app_init_complete(struct nfp_app *app)
 
 		cancel_delayed_work_sync(&ctx->probe_dw);
 	} else {
-		nfp_info(app->cpp,
-			 "waiting, only have %d of %d devices registered\n",
-			 ctx->init_count, need);
+		nfp_mbl_info(dev_ctx,
+			     "waiting, only have %d of %d devices registered\n",
+			     ctx->init_count, need);
 	}
 }
 
@@ -631,8 +632,8 @@ static void nfp_mbl_app_clean(struct nfp_app *app)
 	struct nfp_mbl_dev_ctx *dev_ctx = app->priv;
 
 	/* Note that the UAL has already been stopped at this point. */
-	pr_info("Unregistering device #%u.%u\n", dev_ctx->type,
-		dev_ctx->pcie_unit);
+	nfp_mbl_info(dev_ctx, "unregistering device #%u.%u\n", dev_ctx->type,
+		     dev_ctx->pcie_unit);
 
 	nfp_mbl_dealloc_ctx(NFP_MBL_DEV_INDEX(dev_ctx->type,
 					      dev_ctx->pcie_unit));
