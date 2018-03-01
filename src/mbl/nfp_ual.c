@@ -297,7 +297,24 @@ struct nfp_mbl_dev_ctx *nfp_ual_get_mbl_dev_ctx(int dev_index)
 
 /**
  * nfp_ual_get_reprs() - obtain set of representors, for specified device and
- *			 type
+ *			 type with RCU read lock held
+ * @dev_index:	MBL device app index
+ * @type:	type of representors
+ *
+ * This function expects the RCU read lock to be held.
+ *
+ * Return: set of representors
+ */
+struct nfp_reprs *nfp_ual_get_reprs(int dev_index, enum nfp_repr_type type)
+{
+	struct nfp_app *app = nfp_ual_get_app(dev_index);
+
+	return rcu_dereference(app->reprs[type]);
+}
+
+/**
+ * nfp_ual_get_reprs_locked() - obtain set of representors, for specified device
+ *			and type with the PF lock held.
  * @dev_index:	MBL device app index
  * @type:	type of representors
  *
@@ -305,7 +322,8 @@ struct nfp_mbl_dev_ctx *nfp_ual_get_mbl_dev_ctx(int dev_index)
  *
  * Return: set of representors
  */
-struct nfp_reprs *nfp_ual_get_reprs(int dev_index, enum nfp_repr_type type)
+struct nfp_reprs *
+nfp_ual_get_reprs_locked(int dev_index, enum nfp_repr_type type)
 {
 	struct nfp_app *app = nfp_ual_get_app(dev_index);
 

@@ -149,6 +149,7 @@ EXPORT_SYMBOL(nfp_ual_ctrl_tx);
 EXPORT_SYMBOL(nfp_ual_get_pcie_unit_count);
 EXPORT_SYMBOL(nfp_ual_get_mbl_dev_ctx);
 EXPORT_SYMBOL(nfp_ual_get_reprs);
+EXPORT_SYMBOL(nfp_ual_get_reprs_locked);
 EXPORT_SYMBOL(nfp_ual_foreach_repr);
 EXPORT_SYMBOL(nfp_ual_get_eth_port_from_repr);
 #endif

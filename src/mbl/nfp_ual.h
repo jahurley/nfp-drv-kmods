@@ -245,6 +245,8 @@ nfp_ual_get_mbl_dev_index_from_ctx(struct nfp_mbl_dev_ctx *dev_ctx)
 }
 
 struct nfp_reprs *nfp_ual_get_reprs(int dev_index, enum nfp_repr_type type);
+struct nfp_reprs *
+nfp_ual_get_reprs_locked(int dev_index, enum nfp_repr_type type);
 void nfp_ual_foreach_repr(struct nfp_mbl_dev_ctx *ctx, void *repr_cookie,
 			  void (*repr_cb)(struct nfp_repr *repr, void *cookie));
 
