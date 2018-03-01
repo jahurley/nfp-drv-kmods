@@ -78,6 +78,7 @@ extern const struct nfp_app_type app_flower;
  *		    IRQMOD which are on by default but counter-productive for
  *		    control messages which are often latency-sensitive
  * @ctrl_has_meta:  control messages have prepend of type:5/port:CTRL
+ * @repr_link_from_eth:	repr link state read from eth port
  *
  * Callbacks
  * @init:	perform basic app checks and init
@@ -124,6 +125,7 @@ struct nfp_app_type {
 
 	u32 ctrl_cap_mask;
 	bool ctrl_has_meta;
+	bool repr_link_from_eth;
 
 	int (*init)(struct nfp_app *app);
 	void (*clean)(struct nfp_app *app);
@@ -354,6 +356,11 @@ static inline bool nfp_app_needs_ctrl_vnic(struct nfp_app *app)
 static inline bool nfp_app_ctrl_has_meta(struct nfp_app *app)
 {
 	return app->type->ctrl_has_meta;
+}
+
+static inline bool nfp_app_repr_link_from_eth(struct nfp_app *app)
+{
+	return app->type->repr_link_from_eth;
 }
 
 static inline const char *nfp_app_extra_cap(struct nfp_app *app,

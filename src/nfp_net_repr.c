@@ -497,6 +497,20 @@ struct nfp_reprs *nfp_reprs_alloc(unsigned int num_reprs)
 	return reprs;
 }
 
+static void nfp_repr_sync_linkstate(struct nfp_repr *repr)
+{
+	struct nfp_eth_table_port *eth_port;
+
+	eth_port = __nfp_port_get_eth_port(repr->port);
+	if (!eth_port)
+		return;
+
+	if (eth_port->link)
+		netif_carrier_on(repr->netdev);
+	else
+		netif_carrier_off(repr->netdev);
+}
+
 int nfp_reprs_resync_phys_ports(struct nfp_app *app)
 {
 	struct net_device *netdev;
@@ -514,8 +528,11 @@ int nfp_reprs_resync_phys_ports(struct nfp_app *app)
 			continue;
 
 		repr = netdev_priv(netdev);
-		if (repr->port->type != NFP_PORT_INVALID)
+		if (repr->port->type != NFP_PORT_INVALID) {
+			if (nfp_app_repr_link_from_eth(repr->app))
+				nfp_repr_sync_linkstate(repr);
 			continue;
+		}
 
 		nfp_app_repr_preclean(app, netdev);
 		rcu_assign_pointer(reprs->reprs[i], NULL);
