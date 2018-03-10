@@ -287,10 +287,29 @@ nfp_repr_vlan_rx_kill_vid(struct net_device *netdev, __be16 proto, u16 vid)
 	return nfp_app_repr_vlan_rx_kill_vid(repr->app, netdev, proto, vid);
 }
 
+static int nfp_repr_set_mac_address(struct net_device *netdev, void *addr)
+{
+	struct nfp_repr *repr = netdev_priv(netdev);
+	int err;
+
+	err = eth_prepare_mac_addr_change(netdev, addr);
+	if (err)
+		return err;
+
+	err = nfp_app_repr_set_mac_address(repr->app, netdev, addr);
+	if (err)
+		return err;
+
+	eth_commit_mac_addr_change(netdev, addr);
+
+	return 0;
+}
+
 const struct net_device_ops nfp_repr_netdev_ops = {
 	.ndo_open		= nfp_repr_open,
 	.ndo_stop		= nfp_repr_stop,
 	.ndo_start_xmit		= nfp_repr_xmit,
+	.ndo_set_mac_address	= nfp_repr_set_mac_address,
 	.ndo_change_mtu		= nfp_repr_change_mtu,
 	.ndo_get_stats64	= nfp_repr_get_stats64,
 	.ndo_has_offload_stats	= nfp_repr_has_offload_stats,

@@ -111,6 +111,7 @@ extern const struct nfp_app_type app_flower;
  * @prep_tx_meta:	prepend TX metadata to skb
  * @repr_vlan_rx_add_vid:	registering VLAN id
  * @repr_vlan_rx_kill_vid:	unregistering VLAN id
+ * @repr_set_mac_address:	MAC address change has been requested
  */
 struct nfp_app_type {
 	enum nfp_app_id id;
@@ -174,6 +175,9 @@ struct nfp_app_type {
 	int (*repr_vlan_rx_kill_vid)(struct nfp_app *app,
 				     struct net_device *netdev, __be16 proto,
 				     u16 vid);
+
+	int (*repr_set_mac_address)(struct nfp_app *app,
+				    struct net_device *netdev, void *addr);
 };
 
 /**
@@ -465,6 +469,15 @@ nfp_app_repr_vlan_rx_kill_vid(struct nfp_app *app, struct net_device *netdev,
 	if (!app->type->repr_vlan_rx_kill_vid)
 		return 0;
 	return app->type->repr_vlan_rx_kill_vid(app, netdev, proto, vid);
+}
+
+static inline int
+nfp_app_repr_set_mac_address(struct nfp_app *app, struct net_device *netdev,
+			     void *addr)
+{
+	if (!app || !app->type->repr_set_mac_address)
+		return 0;
+	return app->type->repr_set_mac_address(app, netdev, addr);
 }
 
 struct nfp_app *nfp_app_from_netdev(struct net_device *netdev);
