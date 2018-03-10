@@ -663,6 +663,20 @@ nfp_mbl_check_mtu(struct nfp_app *app, struct net_device *netdev, int new_mtu)
 }
 
 static int
+nfp_mbl_set_mac_address(struct nfp_app *app, struct net_device *netdev,
+			void *addr)
+{
+	if (!nfp_netdev_is_nfp_repr(netdev))
+		return -EOPNOTSUPP;
+
+	if (ctx->ual_ops && ctx->ual_ops->repr_set_mac_address)
+		return ctx->ual_ops->repr_set_mac_address(ctx->ual_cookie,
+							  netdev, addr);
+
+	return 0;
+}
+
+static int
 nfp_mbl_parse_meta(struct nfp_app *app, struct net_device *netdev,
 		   struct nfp_meta_parsed *meta, char *data,
 		   int meta_len)
@@ -822,6 +836,7 @@ const struct nfp_app_type app_mbl = {
 	.eswitch_mode_get = eswitch_mode_get,
 	.repr_get	= nfp_mbl_app_repr_get,
 	.check_mtu	= nfp_mbl_check_mtu,
+	.repr_set_mac_address = nfp_mbl_set_mac_address,
 
 	.repr_xmit	= nfp_mbl_repr_xmit,
 	.repr_vlan_rx_add_vid = nfp_mbl_repr_vlan_rx_add_vid,

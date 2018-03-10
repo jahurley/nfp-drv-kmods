@@ -152,6 +152,7 @@ struct nfp_mbl_dev_ctx {
  * @repr_get_vlan_portid: return repr port ID for VLAN netdevice
  * @repr_change_mtu: MTU change on a netdev has been requested (veto-only,
  *		change is not guaranteed to be committed)
+ * @repr_set_mac_address:	Repr MAC address change has been requested
  */
 struct nfp_ual_ops {
 	const char *name;
@@ -188,6 +189,8 @@ struct nfp_ual_ops {
 
 	int (*repr_change_mtu)(void *cookie, struct net_device *netdev,
 			       int new_mtu);
+	int (*repr_set_mac_address)(void *cookie, struct net_device *netdev,
+				    void *addr);
 };
 
 int nfp_ual_register(const struct nfp_ual_ops *ops, void *cookie);
