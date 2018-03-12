@@ -426,6 +426,15 @@ ualt_vnic_change_mtu(void *cookie, struct nfp_mbl_dev_ctx *ctx,
 	return 0;
 }
 
+static int
+ualt_repr_set_mac_address(void *cookie, struct net_device *netdev, void *addr)
+{
+	struct sockaddr *saddr = addr;
+
+	pr_info("%s: updated repr MAC: %pM\n", netdev->name, saddr->sa_data);
+	return 0;
+}
+
 const struct nfp_ual_ops ops = {
 	.name = UALT_NAME,
 	.spawn_vf_reprs = false,
@@ -452,6 +461,7 @@ const struct nfp_ual_ops ops = {
 	.repr_get_vlan_portid = ualt_repr_get_vlan_portid,
 
 	.repr_change_mtu = ualt_repr_change_mtu,
+	.repr_set_mac_address = ualt_repr_set_mac_address,
 };
 
 static int __init nfp_ualt_module_init(void)
