@@ -126,6 +126,10 @@ struct nfp_mbl_dev_ctx {
  * @clean:	clean UAL state
  * @repr_open:	representor netdev open callback
  * @repr_stop:	representor netdev stop callback
+ * @parse_meta:	parse and store packet metadata. All metadata validation is
+ *		expected to occur here.
+ * @skb_set_meta: set skb metadata parsed with @parse_meta
+ * @prep_tx_meta: prepend TX metadata to skb
  * @sriov_enable: app-specific sriov initialisation
  * @sriov_disable: app-specific sriov clean-up
  */
@@ -137,6 +141,13 @@ struct nfp_ual_ops {
 
 	int (*repr_open)(void *cookie, struct nfp_repr *repr);
 	int (*repr_stop)(void *cookie, struct nfp_repr *repr);
+
+	int (*parse_meta)(void *cookie, struct net_device *netdev,
+			  struct nfp_meta_parsed *meta, char *data,
+			  int meta_len);
+	void (*skb_set_meta)(void *cookie, struct sk_buff *skb,
+			     struct nfp_meta_parsed *meta);
+	int (*prep_tx_meta)(void *cookie, struct sk_buff *skb);
 
 	int (*sriov_enable)(void *cookie, struct nfp_mbl_dev_ctx *ctx,
 			    int num_vfs);

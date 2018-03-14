@@ -578,6 +578,36 @@ static void nfp_mbl_app_clean(struct nfp_app *app)
 	app->priv = NULL;
 }
 
+static int
+nfp_mbl_parse_meta(struct nfp_app *app, struct net_device *netdev,
+		   struct nfp_meta_parsed *meta, char *data,
+		   int meta_len)
+{
+	if (!ctx->ual_ops || !ctx->ual_ops->parse_meta)
+		return -EOPNOTSUPP;
+
+	return ctx->ual_ops->parse_meta(ctx->ual_cookie, netdev, meta, data,
+					meta_len);
+}
+
+static void
+nfp_mbl_skb_set_meta(struct nfp_app *app, struct sk_buff *skb,
+		     struct nfp_meta_parsed *meta)
+{
+	if (!ctx->ual_ops || !ctx->ual_ops->skb_set_meta)
+		return;
+
+	ctx->ual_ops->skb_set_meta(ctx->ual_cookie, skb, meta);
+}
+
+static int
+nfp_mbl_prep_tx_meta(struct nfp_app *app, struct sk_buff *skb)
+{
+	if (!ctx->ual_ops || !ctx->ual_ops->prep_tx_meta)
+		return 0;
+
+	return ctx->ual_ops->prep_tx_meta(ctx->ual_cookie, skb);
+}
 const struct nfp_app_type app_mbl = {
 	.id		= NFP_APP_MBL,
 	.name		= "mbl",
@@ -598,6 +628,11 @@ const struct nfp_app_type app_mbl = {
 
 	.sriov_enable	= nfp_mbl_sriov_enable,
 	.sriov_disable	= nfp_mbl_sriov_disable,
+
 	.eswitch_mode_get = eswitch_mode_get,
 	.repr_get	= nfp_mbl_app_repr_get,
+
+	.parse_meta	= nfp_mbl_parse_meta,
+	.skb_set_meta	= nfp_mbl_skb_set_meta,
+	.prep_tx_meta	= nfp_mbl_prep_tx_meta,
 };
