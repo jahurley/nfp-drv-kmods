@@ -163,6 +163,36 @@ int nfp_ual_get_port_id(struct nfp_repr *repr)
 }
 
 /**
+ * nfp_ual_ctrl_msg_alloc() - transmit control message over primary PCIe
+ *			      interface
+ * @size:	size to allocate
+ * @priority:	allocation mask
+ *
+ * Return: sk_buff pointer or NULL if error
+ */
+struct sk_buff *nfp_ual_ctrl_msg_alloc(unsigned int size, gfp_t priority)
+{
+	/* CMSGs always sent on PCIe 0 only and it must exist. */
+	struct nfp_app *app = nfp_ual_get_app(NFP_MBL_DEV_INDEX_PRIMARY);
+
+	return nfp_app_ctrl_msg_alloc(app, size, priority);
+}
+
+/**
+ * nfp_ual_ctrl_tx() - transmit control message over primary PCIe interface
+ * @skb:	reference to packet data
+ *
+ * Return: true if packet queued, or false if packet processed
+ */
+bool nfp_ual_ctrl_tx(struct sk_buff *skb)
+{
+	/* CMSGs always sent on PCIe 0 only and it must exist. */
+	struct nfp_app *app = nfp_ual_get_app(NFP_MBL_DEV_INDEX_PRIMARY);
+
+	return nfp_app_ctrl_tx(app, skb);
+}
+
+/**
  * nfp_ual_select_tx_dev() - select a transmit data vNIC for a representor
  * @repr:	representor pointer
  * @pcie_unit:	requested PCIe number for data vNIC selection, e.g. 0-3
