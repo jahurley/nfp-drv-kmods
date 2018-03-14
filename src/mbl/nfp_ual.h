@@ -105,9 +105,11 @@ enum nfp_mbl_status_type {
  * struct nfp_mbl_repr - per repr priv data
  *
  * @ual_priv:		UAL per repr priv data
+ * @dst:		repr destination per VID
  */
 struct nfp_mbl_repr {
 	void *ual_priv;
+	struct metadata_dst *vlan_dst[VLAN_N_VID];
 };
 
 /**
@@ -144,6 +146,9 @@ struct nfp_mbl_dev_ctx {
  * @ctrl_msg_rx: control message handler
  * @sriov_enable: app-specific sriov initialisation
  * @sriov_disable: app-specific sriov clean-up
+ * @repr_vlan_rx_add_vid: called when a VLAN id is registered
+ * @repr_vlan_rx_kill_vid: called when a VLAN id is unregistered
+ * @repr_get_vlan_portid: return repr port ID for VLAN netdevice
  * @repr_change_mtu: MTU change on a netdev has been requested (veto-only,
  *		change is not guaranteed to be committed)
  */
@@ -171,6 +176,13 @@ struct nfp_ual_ops {
 	int (*sriov_enable)(void *cookie, struct nfp_mbl_dev_ctx *ctx,
 			    int num_vfs);
 	void (*sriov_disable)(void *cookie, struct nfp_mbl_dev_ctx *ctx);
+
+	int (*repr_vlan_rx_add_vid)(void *cookie, struct net_device *netdev,
+				    __be16 proto, u16 vid);
+	int (*repr_vlan_rx_kill_vid)(void *cookie, struct net_device *netdev,
+				     __be16 proto, u16 vid);
+	u32 (*repr_get_vlan_portid)(void *cookie, struct net_device *netdev,
+				    __be16 proto, u16 vid);
 
 	int (*repr_change_mtu)(void *cookie, struct net_device *netdev,
 			       int new_mtu);

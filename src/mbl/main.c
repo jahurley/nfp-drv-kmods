@@ -661,6 +661,94 @@ static void nfp_mbl_app_ctrl_msg_rx(struct nfp_app *app, struct sk_buff *skb)
 	ctx->ual_ops->ctrl_msg_rx(ctx->ual_cookie, skb);
 }
 
+static int
+nfp_mbl_repr_vlan_rx_add_vid(struct nfp_app *app,
+			     struct net_device *netdev, __be16 proto,
+			     u16 vid)
+{
+	struct nfp_repr *repr = netdev_priv(netdev);
+	struct nfp_mbl_repr *repr_priv;
+	u32 vport_id;
+	int err;
+
+	if (!ctx->ual_ops || !ctx->ual_ops->repr_vlan_rx_add_vid ||
+	    !ctx->ual_ops->repr_get_vlan_portid)
+		return 0;
+
+	repr_priv = repr->app_priv;
+	if (!repr->dst || repr->dst->type != METADATA_HW_PORT_MUX)
+		return -EINVAL;
+
+	err = ctx->ual_ops->repr_vlan_rx_add_vid(ctx->ual_cookie, netdev,
+						 proto, vid);
+	if (err)
+		return err;
+
+	vport_id = ctx->ual_ops->repr_get_vlan_portid(ctx->ual_cookie,
+						      repr->netdev, proto, vid);
+
+	repr_priv->vlan_dst[vid] = metadata_dst_alloc(0, METADATA_HW_PORT_MUX,
+						      GFP_KERNEL);
+	if (!repr_priv->vlan_dst[vid]) {
+		err = -ENOMEM;
+		goto err_kill_vid;
+	}
+
+	repr_priv->vlan_dst[vid]->u.port_info.port_id =
+		(repr->dst->u.port_info.port_id & NFP_MBL_PORTID_MBL_MASK) |
+		(vport_id & NFP_MBL_PORTID_UAL_MASK);
+
+	/* Intentionally don't set a valid lower dev. This MUST always be
+	 * overwritten for each packet to dynamically slave to the repr's
+	 * lower dev.
+	 */
+	repr_priv->vlan_dst[vid]->u.port_info.lower_dev = NULL;
+
+err_kill_vid:
+	if (ctx->ual_ops->repr_vlan_rx_kill_vid)
+		ctx->ual_ops->repr_vlan_rx_kill_vid(ctx->ual_cookie, netdev,
+						    proto, vid);
+	return err;
+}
+
+static int
+nfp_mbl_repr_vlan_rx_kill_vid(struct nfp_app *app,
+			      struct net_device *netdev, __be16 proto,
+			      u16 vid)
+{
+	struct nfp_repr *repr = netdev_priv(netdev);
+	struct nfp_mbl_repr *repr_priv;
+
+	if (!ctx->ual_ops || !ctx->ual_ops->repr_vlan_rx_kill_vid)
+		return 0;
+
+	repr_priv = repr->app_priv;
+	dst_release((struct dst_entry *)repr_priv->vlan_dst[vid]);
+
+	return ctx->ual_ops->repr_vlan_rx_kill_vid(ctx->ual_cookie, netdev,
+						   proto, vid);
+}
+
+static int
+nfp_mbl_repr_xmit(struct nfp_app *app, struct sk_buff *skb,
+		  struct nfp_repr *repr)
+{
+	struct nfp_mbl_repr *repr_priv = repr->app_priv;
+	u16 vid;
+
+	if (!skb_vlan_tag_present(skb))
+		return 0;
+
+	vid = skb_vlan_tag_get(skb);
+
+	skb_dst_drop(skb);
+	dst_hold((struct dst_entry *)repr_priv->vlan_dst[vid]);
+	skb_dst_set(skb, (struct dst_entry *)repr_priv->vlan_dst[vid]);
+	skb->dev = repr->dst->u.port_info.lower_dev;
+
+	return 0;
+}
+
 const struct nfp_app_type app_mbl = {
 	.id		= NFP_APP_MBL,
 	.name		= "mbl",
@@ -690,6 +778,10 @@ const struct nfp_app_type app_mbl = {
 	.eswitch_mode_get = eswitch_mode_get,
 	.repr_get	= nfp_mbl_app_repr_get,
 	.check_mtu	= nfp_mbl_check_mtu,
+
+	.repr_xmit	= nfp_mbl_repr_xmit,
+	.repr_vlan_rx_add_vid = nfp_mbl_repr_vlan_rx_add_vid,
+	.repr_vlan_rx_kill_vid = nfp_mbl_repr_vlan_rx_kill_vid,
 
 	.parse_meta	= nfp_mbl_parse_meta,
 	.skb_set_meta	= nfp_mbl_skb_set_meta,
