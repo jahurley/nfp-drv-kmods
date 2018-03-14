@@ -123,11 +123,23 @@ int nfp_mbl_try_init_ual(void)
 	return 0;
 }
 
+static void nfp_mbl_repr_close_cb(struct nfp_repr *repr, void *cookie)
+{
+	if (!netif_running(repr->netdev))
+		return;
+
+	netdev_warn(repr->netdev, "closing device\n");
+	dev_close(repr->netdev);
+}
+
 void nfp_mbl_stop_ual(void)
 {
 	mutex_lock(&ctx->mbl_lock);
 	if (!ctx->ual_ops || !ctx->ual_running)
 		goto out_unlock;
+
+	/* To ensure we are left in a sane state, close all representors. */
+	nfp_ual_foreach_repr(NULL, NULL, nfp_mbl_repr_close_cb);
 
 	ctx->ual_running = false;
 	if (ctx->ual_ops->clean)
