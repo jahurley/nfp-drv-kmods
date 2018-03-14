@@ -126,12 +126,16 @@ struct nfp_mbl_dev_ctx {
  * @clean:	clean UAL state
  * @repr_open:	representor netdev open callback
  * @repr_stop:	representor netdev stop callback
+ * @vnic_change_mtu: MTU change on vNIC netdev has been requested (veto-only,
+ *		change is not guaranteed to be committed)
  * @parse_meta:	parse and store packet metadata. All metadata validation is
  *		expected to occur here.
  * @skb_set_meta: set skb metadata parsed with @parse_meta
  * @prep_tx_meta: prepend TX metadata to skb
  * @sriov_enable: app-specific sriov initialisation
  * @sriov_disable: app-specific sriov clean-up
+ * @repr_change_mtu: MTU change on a netdev has been requested (veto-only,
+ *		change is not guaranteed to be committed)
  */
 struct nfp_ual_ops {
 	const char *name;
@@ -141,6 +145,9 @@ struct nfp_ual_ops {
 
 	int (*repr_open)(void *cookie, struct nfp_repr *repr);
 	int (*repr_stop)(void *cookie, struct nfp_repr *repr);
+
+	int (*vnic_change_mtu)(void *cookie, struct nfp_mbl_dev_ctx *ctx,
+			       struct net_device *netdev, int new_mtu);
 
 	int (*parse_meta)(void *cookie, struct net_device *netdev,
 			  struct nfp_meta_parsed *meta, char *data,
@@ -152,6 +159,9 @@ struct nfp_ual_ops {
 	int (*sriov_enable)(void *cookie, struct nfp_mbl_dev_ctx *ctx,
 			    int num_vfs);
 	void (*sriov_disable)(void *cookie, struct nfp_mbl_dev_ctx *ctx);
+
+	int (*repr_change_mtu)(void *cookie, struct net_device *netdev,
+			       int new_mtu);
 };
 
 int nfp_ual_register(const struct nfp_ual_ops *ops, void *cookie);

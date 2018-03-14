@@ -579,6 +579,26 @@ static void nfp_mbl_app_clean(struct nfp_app *app)
 }
 
 static int
+nfp_mbl_check_mtu(struct nfp_app *app, struct net_device *netdev, int new_mtu)
+{
+	struct nfp_mbl_dev_ctx *priv = app->priv;
+
+	if (nfp_netdev_is_nfp_repr(netdev)) {
+		if (ctx->ual_ops && ctx->ual_ops->repr_change_mtu)
+			return ctx->ual_ops->repr_change_mtu(ctx->ual_cookie,
+							     netdev, new_mtu);
+	} else {
+		if (ctx->ual_ops && ctx->ual_ops->vnic_change_mtu)
+			return ctx->ual_ops->vnic_change_mtu(ctx->ual_cookie,
+							     priv, netdev,
+							     new_mtu);
+	}
+
+	/* This cannot occur */
+	return -EOPNOTSUPP;
+}
+
+static int
 nfp_mbl_parse_meta(struct nfp_app *app, struct net_device *netdev,
 		   struct nfp_meta_parsed *meta, char *data,
 		   int meta_len)
@@ -631,6 +651,7 @@ const struct nfp_app_type app_mbl = {
 
 	.eswitch_mode_get = eswitch_mode_get,
 	.repr_get	= nfp_mbl_app_repr_get,
+	.check_mtu	= nfp_mbl_check_mtu,
 
 	.parse_meta	= nfp_mbl_parse_meta,
 	.skb_set_meta	= nfp_mbl_skb_set_meta,
