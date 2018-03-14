@@ -160,3 +160,60 @@ int nfp_ual_get_port_id(struct nfp_repr *repr)
 {
 	return nfp_repr_get_port_id(repr->netdev);
 }
+
+/**
+ * nfp_ual_select_tx_dev() - select a transmit data vNIC for a representor
+ * @repr:	representor pointer
+ * @pcie_unit:	requested PCIe number for data vNIC selection, e.g. 0-3
+ *
+ * Return: negative ERRNO or 0 for success
+ */
+int nfp_ual_select_tx_dev(struct nfp_repr *repr, u8 pcie_unit)
+{
+	struct net_device *old_netdev, *pf_netdev;
+	struct nfp_mbl_dev_ctx *dev_ctx;
+	int dev_index;
+	int err;
+
+	ASSERT_RTNL();
+
+	dev_index = NFP_MBL_DEV_INDEX(NFP_MBL_DEV_TYPE_MASTER_PF, pcie_unit);
+
+	dev_ctx = nfp_ual_get_mbl_dev_ctx(dev_index);
+	if (!dev_ctx)
+		return -ENOENT;
+
+	pf_netdev = dev_ctx->nn->dp.netdev;
+	old_netdev = nfp_repr_get_lower_dev(repr->netdev);
+
+	repr->netdev->max_mtu = pf_netdev->max_mtu;
+	nfp_repr_set_lower_dev(repr->netdev, pf_netdev);
+
+	err = dev_open(pf_netdev);
+	if (err)
+		goto err_revert_max_mtu;
+
+	return 0;
+
+err_revert_max_mtu:
+	repr->netdev->max_mtu = old_netdev->max_mtu;
+	nfp_repr_set_lower_dev(repr->netdev, old_netdev);
+	return err;
+}
+
+/**
+ * nfp_ual_get_mbl_dev_ctx() - obtain device app context pointer for index
+ * @dev_index:	MBL device app index
+ *
+ * Return: device app context pointer or NULL
+ */
+struct nfp_mbl_dev_ctx *nfp_ual_get_mbl_dev_ctx(int dev_index)
+{
+	struct nfp_mbl_global_data *ctx;
+
+	ctx = nfp_mbl_get_global_ctx();
+	if (!ctx || dev_index >= NFP_MBL_DEV_INDEX_MAX)
+		return NULL;
+
+	return ctx->dev_ctx[dev_index];
+}

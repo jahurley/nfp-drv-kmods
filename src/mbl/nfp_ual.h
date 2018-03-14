@@ -142,5 +142,7 @@ void *nfp_ual_unregister(void);
 
 int nfp_ual_set_port_id(struct nfp_repr *repr, u32 port_id);
 int nfp_ual_get_port_id(struct nfp_repr *repr);
+int nfp_ual_select_tx_dev(struct nfp_repr *repr, u8 pcie_unit);
 
+struct nfp_mbl_dev_ctx *nfp_ual_get_mbl_dev_ctx(int dev_index);
 #endif
