@@ -108,13 +108,24 @@ int nfp_mbl_try_init_ual(void)
 	if (ctx->status == NFP_MBL_STATUS_PROBE)
 		return -EAGAIN;
 
+	if (!ctx->ual_ops)
+		return -EAGAIN;
+
 	ctx->ual_running = true;
+	if (ctx->ual_ops->init)
+		return ctx->ual_ops->init(ctx->ual_cookie, ctx->status);
+
 	return 0;
 }
 
 void nfp_mbl_stop_ual(void)
 {
+	if (!ctx->ual_ops || !ctx->ual_running)
+		return;
+
 	ctx->ual_running = false;
+	if (ctx->ual_ops->clean)
+		ctx->ual_ops->clean(ctx->ual_cookie);
 }
 
 static enum devlink_eswitch_mode eswitch_mode_get(struct nfp_app *app)
@@ -156,6 +167,15 @@ nfp_mbl_app_repr_get(struct nfp_app *app, u32 port_id)
 static int
 nfp_mbl_app_repr_netdev_open(struct nfp_app *app, struct nfp_repr *repr)
 {
+	int err;
+
+	if (!ctx->ual_ops || !ctx->ual_ops->repr_open)
+		return -EOPNOTSUPP;
+
+	err = ctx->ual_ops->repr_open(ctx->ual_cookie, repr);
+	if (err)
+		return err;
+
 	netif_tx_wake_all_queues(repr->netdev);
 
 	/* Hardcode until we implement the link state monitoring. */
@@ -166,11 +186,15 @@ nfp_mbl_app_repr_netdev_open(struct nfp_app *app, struct nfp_repr *repr)
 static int
 nfp_mbl_app_repr_netdev_stop(struct nfp_app *app, struct nfp_repr *repr)
 {
+	if (!ctx->ual_ops || !ctx->ual_ops->repr_stop)
+		return -EOPNOTSUPP;
+
 	netif_tx_disable(repr->netdev);
 
 	/* Hardcode until we implement the link state monitoring. */
 	netif_carrier_off(repr->netdev);
-	return 0;
+
+	return ctx->ual_ops->repr_stop(ctx->ual_cookie, repr);
 }
 
 static int

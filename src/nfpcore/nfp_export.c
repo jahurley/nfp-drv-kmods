@@ -42,6 +42,7 @@
 #include "nfp_nbi.h"
 #include "nfp_nffw.h"
 #include "nfp_nsp.h"
+#include "mbl/nfp_ual.h"
 
 /* Implemented in nfp_cppcore.c */
 
@@ -133,3 +134,10 @@ EXPORT_SYMBOL(nfp_rtsym_count);
 EXPORT_SYMBOL(nfp_rtsym_get);
 EXPORT_SYMBOL(nfp_rtsym_lookup);
 EXPORT_SYMBOL(nfp_rtsym_read_le);
+
+/* Implemented in nfp_ual.c */
+
+#ifdef CONFIG_NFP_APP_MBL
+EXPORT_SYMBOL(nfp_ual_register);
+EXPORT_SYMBOL(nfp_ual_unregister);
+#endif

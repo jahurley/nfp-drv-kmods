@@ -186,7 +186,8 @@ ifneq (,$(filter y,$(CONFIG_NFP_NET_PF) $(CONFIG_NFP_NET_VF)))
 
 	  ccflags-y += -DCONFIG_NFP_APP_MBL
 	  nfp-objs += \
-		mbl/main.o
+		mbl/main.o \
+		mbl/nfp_ual.o
 	else
           $(warning NFP: CONFIG_NET_SWITCHDEV not enabled in the kernel, disabling apps: flower, mbl)
 	endif

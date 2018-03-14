@@ -47,6 +47,8 @@
  * @status:	status flag
  * @probe_dw: delayed work to check probe timeout status
  * @init_count:	number of devices which are ready for UAL
+ * @ual_ops:	store UAL callback structure
+ * @ual_cookie:	UAL opaque callback pointer
  * @ual_running: track UAL status
  */
 struct nfp_mbl_global_data {
@@ -58,6 +60,8 @@ struct nfp_mbl_global_data {
 
 	int init_count;
 
+	const struct nfp_ual_ops *ual_ops;
+	void *ual_cookie;
 	bool ual_running;
 };
 

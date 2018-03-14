@@ -79,7 +79,7 @@ enum nfp_mbl_dev_type {
 
 #define NFP_MBL_DEV_ID_MAX		4
 #define NFP_MBL_DEV_INDEX(type, id) \
-	((type) * NFP_MBL_DEV_TYPE_MAX + (id))
+	((type) * NFP_MBL_DEV_ID_MAX + (id))
 #define NFP_MBL_DEV_INDEX_MAX \
 	NFP_MBL_DEV_INDEX(NFP_MBL_DEV_TYPE_MAX, NFP_MBL_DEV_ID_MAX)
 #define NFP_MBL_DEV_INDEX_PRIMARY \
@@ -116,5 +116,28 @@ struct nfp_mbl_dev_ctx {
 	enum nfp_mbl_dev_type type;
 	u8 pcie_unit;
 };
+
+/**
+ * struct nfp_ual_ops - UAL operations
+ * @name:	get UAL name
+ *
+ * callbacks:
+ * @init:	perform UAL init
+ * @clean:	clean UAL state
+ * @repr_open:	representor netdev open callback
+ * @repr_stop:	representor netdev stop callback
+ */
+struct nfp_ual_ops {
+	const char *name;
+
+	int (*init)(void *cookie, enum nfp_mbl_status_type status);
+	void (*clean)(void *cookie);
+
+	int (*repr_open)(void *cookie, struct nfp_repr *repr);
+	int (*repr_stop)(void *cookie, struct nfp_repr *repr);
+};
+
+int nfp_ual_register(const struct nfp_ual_ops *ops, void *cookie);
+void *nfp_ual_unregister(void);
 
 #endif
