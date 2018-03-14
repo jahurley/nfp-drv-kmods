@@ -35,6 +35,7 @@
 
 #include "main.h"
 #include "nfp_main.h"
+#include "nfp_net_repr.h"
 #include "nfp_ual.h"
 
 /**
@@ -120,4 +121,31 @@ void *nfp_ual_unregister(void)
 	ctx->ual_ops = NULL;
 
 	return cookie;
+}
+
+/**
+ * nfp_ual_set_port_id() - set the port ID for a representor
+ * @repr:	representor pointer
+ * @port_id:	new port ID, only allowed to specify UAL allocated space
+ *
+ * Return: negative ERRNO or 0 for success
+ */
+int nfp_ual_set_port_id(struct nfp_repr *repr, u32 port_id)
+{
+	u32 new_port_id, old_port_id;
+
+	/* UAL must not touch the MBL reserved bits of the port ID. */
+	if (port_id & NFP_MBL_PORTID_MBL_MASK)
+		return -EINVAL;
+
+	old_port_id = nfp_repr_get_port_id(repr->netdev);
+	new_port_id = (port_id & NFP_MBL_PORTID_UAL_MASK) |
+		(old_port_id & NFP_MBL_PORTID_MBL_MASK);
+
+	pr_info("%s: modifying repr ID: 0x%08x -> 0x%08x\n",
+		repr->netdev->name, old_port_id, new_port_id);
+
+	nfp_repr_set_port_id(repr->netdev, new_port_id);
+
+	return 0;
 }
