@@ -36,6 +36,7 @@
 #include "main.h"
 #include "nfp_main.h"
 #include "nfp_net_repr.h"
+#include "nfp_port.h"
 #include "nfp_ual.h"
 
 /**
@@ -216,4 +217,83 @@ struct nfp_mbl_dev_ctx *nfp_ual_get_mbl_dev_ctx(int dev_index)
 		return NULL;
 
 	return ctx->dev_ctx[dev_index];
+}
+
+/**
+ * nfp_ual_get_reprs() - obtain set of representors, for specified device and
+ *			 type
+ * @dev_index:	MBL device app index
+ * @type:	type of representors
+ *
+ * This function expects the PF lock to be held for the device specified.
+ *
+ * Return: set of representors
+ */
+struct nfp_reprs *nfp_ual_get_reprs(int dev_index, enum nfp_repr_type type)
+{
+	struct nfp_app *app = nfp_ual_get_app(dev_index);
+
+	return rcu_dereference_protected(app->reprs[type],
+					 lockdep_is_held(&app->pf->lock));
+}
+
+/**
+ * nfp_ual_foreach_repr() - execute a provided callback for each representor
+ *			    available on the system
+ *
+ * RTNL and RCU read lock held while callback is executed.
+ *
+ * @ctx:	if not NULL, device app context to filter on
+ * @repr_cookie:	opaque reference to pass to callback function
+ * @repr_cb:	callback, taking representor reference and opaque cookie as
+ *		as parameters
+ *
+ * Return: void
+ */
+void nfp_ual_foreach_repr(struct nfp_mbl_dev_ctx *ctx, void *repr_cookie,
+			  void (*repr_cb)(struct nfp_repr *repr, void *cookie))
+{
+	int i, j, dev_index, f_idx;
+	struct net_device *netdev;
+	struct nfp_reprs *reprs;
+	struct nfp_app *app;
+
+	f_idx = (ctx ? nfp_ual_get_mbl_dev_index_from_ctx(ctx) : -1);
+	for (dev_index = 0; dev_index <= NFP_MBL_DEV_INDEX_MAX; dev_index++) {
+		if (ctx && dev_index != f_idx)
+			continue;
+
+		app = nfp_ual_get_app(dev_index);
+		if (!app)
+			continue;
+
+		rtnl_lock();
+		rcu_read_lock();
+		for (i = 0; i <= NFP_REPR_TYPE_MAX; i++) {
+			reprs = nfp_ual_get_reprs(dev_index, i);
+			for (j = 0; reprs && j < reprs->num_reprs; j++) {
+				netdev = rcu_dereference(reprs->reprs[j]);
+				if (netdev)
+					repr_cb(netdev_priv(netdev),
+						repr_cookie);
+			}
+		}
+		rcu_read_unlock();
+		rtnl_unlock();
+	}
+}
+
+/**
+ * nfp_ual_get_eth_port_from_repr() - obtain the associated eth_table_port entry
+ *				      for the specified representor
+ * @repr:	representor pointer
+ *
+ * Return: eth_table_port structure reference or NULL for VF ports
+ */
+struct nfp_eth_table_port *
+nfp_ual_get_eth_port_from_repr(struct nfp_repr *repr)
+{
+	struct nfp_port *port = nfp_port_from_netdev(repr->netdev);
+
+	return nfp_port_get_eth_port(port);
 }

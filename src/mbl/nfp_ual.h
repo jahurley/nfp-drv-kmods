@@ -145,4 +145,51 @@ int nfp_ual_get_port_id(struct nfp_repr *repr);
 int nfp_ual_select_tx_dev(struct nfp_repr *repr, u8 pcie_unit);
 
 struct nfp_mbl_dev_ctx *nfp_ual_get_mbl_dev_ctx(int dev_index);
+static inline struct nfp_mbl_dev_ctx *
+nfp_ual_get_mbl_dev_ctx_from_netdev(struct net_device *netdev)
+{
+	struct nfp_app *app = nfp_app_from_netdev(netdev);
+
+	if (!app)
+		return NULL;
+
+	return app->priv;
+};
+
+static inline struct nfp_cpp *nfp_ual_get_cpp(int dev_index)
+{
+	struct nfp_mbl_dev_ctx *dev_ctx = nfp_ual_get_mbl_dev_ctx(dev_index);
+
+	if (!dev_ctx)
+		return NULL;
+
+	return dev_ctx->app->cpp;
+};
+
+static inline struct nfp_app *nfp_ual_get_app(int dev_index)
+{
+	struct nfp_mbl_dev_ctx *dev_ctx = nfp_ual_get_mbl_dev_ctx(dev_index);
+
+	if (!dev_ctx)
+		return NULL;
+
+	return dev_ctx->app;
+};
+
+static inline int
+nfp_ual_get_mbl_dev_index_from_ctx(struct nfp_mbl_dev_ctx *dev_ctx)
+{
+	if (!dev_ctx)
+		return -ENOENT;
+
+	return NFP_MBL_DEV_INDEX(dev_ctx->type, dev_ctx->pcie_unit);
+}
+
+struct nfp_reprs *nfp_ual_get_reprs(int dev_index, enum nfp_repr_type type);
+void nfp_ual_foreach_repr(struct nfp_mbl_dev_ctx *ctx, void *repr_cookie,
+			  void (*repr_cb)(struct nfp_repr *repr, void *cookie));
+
+struct nfp_eth_table_port *
+nfp_ual_get_eth_port_from_repr(struct nfp_repr *repr);
+
 #endif

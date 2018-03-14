@@ -144,4 +144,7 @@ EXPORT_SYMBOL(nfp_ual_set_port_id);
 EXPORT_SYMBOL(nfp_ual_get_port_id);
 EXPORT_SYMBOL(nfp_ual_select_tx_dev);
 EXPORT_SYMBOL(nfp_ual_get_mbl_dev_ctx);
+EXPORT_SYMBOL(nfp_ual_get_reprs);
+EXPORT_SYMBOL(nfp_ual_foreach_repr);
+EXPORT_SYMBOL(nfp_ual_get_eth_port_from_repr);
 #endif
