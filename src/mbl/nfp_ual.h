@@ -126,6 +126,8 @@ struct nfp_mbl_dev_ctx {
  * @clean:	clean UAL state
  * @repr_open:	representor netdev open callback
  * @repr_stop:	representor netdev stop callback
+ * @sriov_enable: app-specific sriov initialisation
+ * @sriov_disable: app-specific sriov clean-up
  */
 struct nfp_ual_ops {
 	const char *name;
@@ -135,6 +137,10 @@ struct nfp_ual_ops {
 
 	int (*repr_open)(void *cookie, struct nfp_repr *repr);
 	int (*repr_stop)(void *cookie, struct nfp_repr *repr);
+
+	int (*sriov_enable)(void *cookie, struct nfp_mbl_dev_ctx *ctx,
+			    int num_vfs);
+	void (*sriov_disable)(void *cookie, struct nfp_mbl_dev_ctx *ctx);
 };
 
 int nfp_ual_register(const struct nfp_ual_ops *ops, void *cookie);

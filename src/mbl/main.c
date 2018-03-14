@@ -219,6 +219,60 @@ nfp_mbl_app_repr_netdev_stop(struct nfp_app *app, struct nfp_repr *repr)
 }
 
 static int
+nfp_mbl_app_spawn_vnic_reprs(struct nfp_app *app, unsigned int cnt)
+{
+	struct nfp_mbl_dev_ctx *dev_ctx = app->priv;
+	struct nfp_reprs *reprs;
+	int i, err, dev_index;
+
+	reprs = nfp_reprs_alloc(cnt);
+	if (!reprs)
+		return -ENOMEM;
+
+	dev_index = NFP_MBL_DEV_INDEX(dev_ctx->type, dev_ctx->pcie_unit);
+	for (i = 0; i < cnt; i++) {
+		struct net_device *repr;
+		struct nfp_port *port;
+		u32 port_id;
+
+		repr = nfp_repr_alloc(app);
+		if (!repr) {
+			err = -ENOMEM;
+			goto err_reprs_clean;
+		}
+		RCU_INIT_POINTER(reprs->reprs[i], repr);
+
+		port = nfp_port_alloc(app, NFP_PORT_VF_PORT, repr);
+		port->pf_id = dev_ctx->pcie_unit;
+		port->vf_id = i;
+		port->vnic = app->pf->vf_cfg_mem + i * NFP_NET_CFG_BAR_SZ;
+
+		eth_hw_addr_random(repr);
+
+		port_id = nfp_mbl_portid(dev_index, NFP_REPR_TYPE_VF,
+					 port->vf_id);
+		err = nfp_repr_init(app, repr,
+				    port_id, port, dev_ctx->nn->dp.netdev);
+		if (err) {
+			nfp_port_free(port);
+			goto err_reprs_clean;
+		}
+
+		nfp_info(app->cpp,
+			 "VF%d Representor(%s) created with ID 0x%08x\n", i,
+			 repr->name, port_id);
+	}
+
+	nfp_app_reprs_set(app, NFP_REPR_TYPE_VF, reprs);
+
+	return 0;
+
+err_reprs_clean:
+	nfp_reprs_clean_and_free(app, reprs);
+	return err;
+}
+
+static int
 nfp_mbl_app_spawn_phy_reprs(struct nfp_app *app)
 {
 	struct nfp_eth_table *eth_tbl = app->pf->eth_tbl;
@@ -285,6 +339,48 @@ nfp_mbl_app_spawn_phy_reprs(struct nfp_app *app)
 err_reprs_clean:
 	nfp_reprs_clean_and_free(app, reprs);
 	return err;
+}
+
+static int nfp_mbl_sriov_enable(struct nfp_app *app, int num_vfs)
+{
+	struct nfp_mbl_dev_ctx *dev_ctx = app->priv;
+	int err;
+
+	if (!ctx->ual_ops)
+		return -EOPNOTSUPP;
+
+	if (!dev_ctx->nn)
+		return 0;
+
+	err = nfp_mbl_app_spawn_vnic_reprs(app, num_vfs);
+	if (err)
+		return err;
+
+	if (ctx->ual_ops->sriov_enable) {
+		err = ctx->ual_ops->sriov_enable(ctx->ual_cookie, dev_ctx,
+						 num_vfs);
+		if (err)
+			goto err_destroy_reprs_vf;
+	}
+
+	return 0;
+
+err_destroy_reprs_vf:
+	nfp_reprs_clean_and_free_by_type(app, NFP_REPR_TYPE_VF);
+	return err;
+}
+
+static void nfp_mbl_sriov_disable(struct nfp_app *app)
+{
+	struct nfp_mbl_dev_ctx *dev_ctx = app->priv;
+
+	if (!dev_ctx->nn)
+		return;
+
+	if (ctx->ual_ops && ctx->ual_ops->sriov_disable)
+		ctx->ual_ops->sriov_disable(ctx->ual_cookie, dev_ctx);
+
+	nfp_reprs_clean_and_free_by_type(app, NFP_REPR_TYPE_VF);
 }
 
 static int nfp_mbl_app_vnic_alloc(struct nfp_app *app, struct nfp_net *nn,
@@ -500,6 +596,8 @@ const struct nfp_app_type app_mbl = {
 	.repr_open	= nfp_mbl_app_repr_netdev_open,
 	.repr_stop	= nfp_mbl_app_repr_netdev_stop,
 
+	.sriov_enable	= nfp_mbl_sriov_enable,
+	.sriov_disable	= nfp_mbl_sriov_disable,
 	.eswitch_mode_get = eswitch_mode_get,
 	.repr_get	= nfp_mbl_app_repr_get,
 };
