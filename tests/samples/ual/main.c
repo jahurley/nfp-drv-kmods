@@ -44,6 +44,11 @@
 
 #define UALT_NAME	"ualt_module"
 
+struct ualt_app_meta {
+	u32 timestamp_lo;
+	u32 timestamp_hi;
+};
+
 /* The base header for a control message packet.
  * Defines an 8-bit version, and an 8-bit type, padded
  * to a 32-bit word. Rest of the packet is type-specific.
@@ -256,6 +261,67 @@ static int ualt_repr_stop(void *cookie, struct nfp_repr *repr)
 	return 0;
 }
 
+/* The app specific metadata is as the name suggests app specific.
+ * The following code only serves an a very simplistic example, that reads a
+ * timestamp word from the packet. On TX, the system timestamp is inserted
+ * into the packet metadata.
+ *
+ * The app can set the metadata fields any way it wants, but it needs to take
+ * the following assumptions into account:
+ * 1) The app_meta_desc field must be non-zero whenever the app has parsed
+ *    any metadata.
+ * 2) The app_meta field is a total of 64bits in length. This could potentially
+ *    be used to store a pointer to an app specific data struct if the app
+ *    wishes to do so. Any memory allocated during the parse_meta callback must
+ *    be freed again in the skb_set_meta handler.
+ *    It is not recommended to allocate memory for this, it may be required on a
+ *    case by case basis.
+ */
+
+#define UALT_APP_META_POPULATED	1
+
+static int
+ualt_parse_meta(void *cookie, struct net_device *netdev,
+		struct nfp_meta_parsed *meta, char *data, int meta_len)
+{
+	struct ualt_app_meta *app_meta =
+		(struct ualt_app_meta *)&meta->app_meta_data;
+
+	BUILD_BUG_ON(sizeof(*app_meta) != sizeof(meta->app_meta_data));
+
+	meta->app_meta_desc = UALT_APP_META_POPULATED;
+	app_meta->timestamp_lo = get_unaligned_be32(data);
+	app_meta->timestamp_hi = get_unaligned_be32(data + 4);
+
+	return sizeof(*app_meta);
+}
+
+static void ualt_skb_set_meta(void *cookie, struct sk_buff *skb,
+			      struct nfp_meta_parsed *meta)
+{
+	struct ualt_app_meta *app_meta =
+		(struct ualt_app_meta *)&meta->app_meta_data;
+
+	pr_debug("rx-ts=0x%08x 0x%08x\n", app_meta->timestamp_lo,
+		 app_meta->timestamp_hi);
+}
+
+static int ualt_prep_tx_meta(void *cookie, struct sk_buff *skb)
+{
+	struct ualt_cookie *priv = cookie;
+	unsigned char *data;
+
+	if (unlikely(skb_cow_head(skb, 8)))
+		return -ENOMEM;
+
+	data = skb_push(skb, 8);
+	put_unaligned_be32((u32)jiffies, data);
+	put_unaligned_be32(priv->label, data + 4);
+	pr_debug("tx-ts=0x%08x 0x%08x\n", (u32)jiffies, priv->label);
+
+	return 8;
+}
+
 const struct nfp_ual_ops ops = {
 	.name = UALT_NAME,
 
@@ -264,6 +330,10 @@ const struct nfp_ual_ops ops = {
 
 	.repr_open = ualt_repr_open,
 	.repr_stop = ualt_repr_stop,
+
+	.parse_meta = ualt_parse_meta,
+	.skb_set_meta = ualt_skb_set_meta,
+	.prep_tx_meta = ualt_prep_tx_meta,
 };
 
 static int __init nfp_ualt_module_init(void)
