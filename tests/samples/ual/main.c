@@ -68,11 +68,18 @@ enum ualt_cmsg_type {
 
 struct ualt_cmsg_port {
 	u32 port_id;
-	u8 pad;
+	u8 flags;
 	u8 pcie;
 	u8 nbi;
 	u8 port;
 };
+
+enum ualt_cmsg_port_flag {
+	UALT_PORT_FLAG_ADD =	0,
+	UALT_PORT_FLAG_REMOVE =	1,
+};
+
+#define UALT_PORTID_VLAN		GENMASK(18, 9)
 
 static int scratchpad;
 
@@ -107,7 +114,9 @@ ualt_cmsg_alloc(unsigned int size, enum ualt_cmsg_type type)
 	return skb;
 }
 
-static int ualt_cmsg_port(struct nfp_repr *repr, u8 rx_vnic)
+static int
+ualt_cmsg_port(struct nfp_repr *repr, unsigned int port_id, u8 rx_vnic,
+	       unsigned int flags)
 {
 	struct nfp_eth_table_port *eth_port;
 	struct ualt_cmsg_port *msg;
@@ -122,11 +131,11 @@ static int ualt_cmsg_port(struct nfp_repr *repr, u8 rx_vnic)
 		return -ENOMEM;
 
 	msg = ualt_cmsg_get_data(skb);
-	msg->port_id = nfp_ual_get_port_id(repr);
+	msg->port_id = port_id;
 	msg->nbi = eth_port->nbi;
 	msg->port = eth_port->eth_index;
 	msg->pcie = rx_vnic;
-	msg->pad = 0;
+	msg->flags = flags;
 
 	nfp_ual_ctrl_tx(skb);
 	return 0;
@@ -183,7 +192,8 @@ static void ualt_bringup_reprs(struct nfp_repr *repr, void *cookie)
 		pr_warn("%s: unable to select data vNIC\n",
 			repr->netdev->name);
 
-	err = ualt_cmsg_port(repr, repr_meta->rx_vnic);
+	err = ualt_cmsg_port(repr, nfp_ual_get_port_id(repr),
+			     repr_meta->rx_vnic, UALT_PORT_FLAG_ADD);
 	if (err)
 		pr_err("%s: unable to send port ctrl msg: %i\n",
 		       repr->netdev->name, err);
@@ -197,6 +207,8 @@ static void ualt_cleanup_reprs(struct nfp_repr *repr, void *cookie)
 
 	nfp_ual_set_port_id(repr, NFP_UAL_PORTID_UNSPEC);
 	nfp_ual_select_tx_dev(repr, 0);
+	ualt_cmsg_port(repr, nfp_ual_get_port_id(repr), 0,
+		       UALT_PORT_FLAG_REMOVE);
 
 	if (mbl_repr->ual_priv) {
 		vfree(mbl_repr->ual_priv);
@@ -339,6 +351,66 @@ static void ualt_sriov_disable(void *cookie, struct nfp_mbl_dev_ctx *ctx)
 }
 
 static int
+ualt_repr_vlan_rx_add_vid(void *cookie, struct net_device *netdev, __be16 proto,
+			  u16 vid)
+{
+	struct nfp_repr *repr = netdev_priv(netdev);
+	struct ualt_repr_meta *meta;
+	unsigned int port_id;
+	int err;
+
+	/* Do nothing for filter with VID 0. */
+	if (!vid)
+		return 0;
+
+	meta = ualt_get_repr_meta(repr);
+	if (!meta)
+		return -ENODEV;
+
+	port_id = nfp_ual_get_port_id(repr);
+	port_id |= FIELD_PREP(UALT_PORTID_VLAN, vid);
+
+	pr_info("%s: added VLAN %u with port ID 0x%08x\n", netdev->name, vid,
+		port_id);
+
+	err = ualt_cmsg_port(repr, port_id, meta->rx_vnic, UALT_PORT_FLAG_ADD);
+	if (err)
+		pr_err("%s: unable to send port ctrl msg: %i\n",
+		       repr->netdev->name, err);
+
+	return err;
+}
+
+static int
+ualt_repr_vlan_rx_kill_vid(void *cookie, struct net_device *netdev,
+			   __be16 proto, u16 vid)
+{
+	struct nfp_repr *repr = netdev_priv(netdev);
+	unsigned int port_id;
+	int err;
+
+	port_id = nfp_ual_get_port_id(repr);
+	port_id |= FIELD_PREP(UALT_PORTID_VLAN, vid);
+
+	pr_info("%s: removed VLAN %u with port ID 0x%08x\n", netdev->name, vid,
+		port_id);
+
+	err = ualt_cmsg_port(repr, port_id, 0, UALT_PORT_FLAG_REMOVE);
+	if (err)
+		pr_err("%s: unable to send port ctrl msg: %i\n",
+		       repr->netdev->name, err);
+
+	return err;
+}
+
+static u32
+ualt_repr_get_vlan_portid(void *cookie, struct net_device *netdev, __be16 proto,
+			  u16 vid)
+{
+	return FIELD_PREP(UALT_PORTID_VLAN, vid);
+}
+
+static int
 ualt_repr_change_mtu(void *cookie, struct net_device *netdev, int new_mtu)
 {
 	pr_info("%s: updated repr MTU to %i\n", netdev->name, new_mtu);
@@ -374,6 +446,10 @@ const struct nfp_ual_ops ops = {
 
 	.sriov_enable = ualt_sriov_enable,
 	.sriov_disable = ualt_sriov_disable,
+
+	.repr_vlan_rx_add_vid = ualt_repr_vlan_rx_add_vid,
+	.repr_vlan_rx_kill_vid = ualt_repr_vlan_rx_kill_vid,
+	.repr_get_vlan_portid = ualt_repr_get_vlan_portid,
 
 	.repr_change_mtu = ualt_repr_change_mtu,
 };
