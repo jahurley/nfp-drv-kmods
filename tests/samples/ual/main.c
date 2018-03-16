@@ -322,6 +322,38 @@ static int ualt_prep_tx_meta(void *cookie, struct sk_buff *skb)
 	return 8;
 }
 
+static void ualt_ctrl_msg_rx(void *cookie, struct sk_buff *skb)
+{
+}
+
+static int
+ualt_sriov_enable(void *cookie, struct nfp_mbl_dev_ctx *ctx, int num_vfs)
+{
+	dev_info(&ctx->app->pf->pdev->dev, "created %i VFs\n", num_vfs);
+	return 0;
+}
+
+static void ualt_sriov_disable(void *cookie, struct nfp_mbl_dev_ctx *ctx)
+{
+	dev_info(&ctx->app->pf->pdev->dev, "destroyed VFs\n");
+}
+
+static int
+ualt_repr_change_mtu(void *cookie, struct net_device *netdev, int new_mtu)
+{
+	pr_info("%s: updated repr MTU to %i\n", netdev->name, new_mtu);
+	return 0;
+}
+
+static int
+ualt_vnic_change_mtu(void *cookie, struct nfp_mbl_dev_ctx *ctx,
+		     struct net_device *netdev, int new_mtu)
+{
+	pr_info("%s: updated vNIC #%u MTU to %i\n", netdev->name,
+		ctx->pcie_unit, new_mtu);
+	return 0;
+}
+
 const struct nfp_ual_ops ops = {
 	.name = UALT_NAME,
 	.spawn_vf_reprs = false,
@@ -335,6 +367,15 @@ const struct nfp_ual_ops ops = {
 	.parse_meta = ualt_parse_meta,
 	.skb_set_meta = ualt_skb_set_meta,
 	.prep_tx_meta = ualt_prep_tx_meta,
+
+	.vnic_change_mtu = ualt_vnic_change_mtu,
+
+	.ctrl_msg_rx = ualt_ctrl_msg_rx,
+
+	.sriov_enable = ualt_sriov_enable,
+	.sriov_disable = ualt_sriov_disable,
+
+	.repr_change_mtu = ualt_repr_change_mtu,
 };
 
 static int __init nfp_ualt_module_init(void)
