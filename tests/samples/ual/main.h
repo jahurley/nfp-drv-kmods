@@ -36,6 +36,7 @@
 
 struct ualt_cookie {
 	u32 label;
+	u8 pcie_map;
 };
 
 #endif
