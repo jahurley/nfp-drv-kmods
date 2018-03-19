@@ -102,6 +102,15 @@ enum nfp_mbl_status_type {
 };
 
 /**
+ * struct nfp_mbl_repr - per repr priv data
+ *
+ * @ual_priv:		UAL per repr priv data
+ */
+struct nfp_mbl_repr {
+	void *ual_priv;
+};
+
+/**
  * struct nfp_mbl_dev_ctx - device app context
  * This structure is used as the per device app priv structure, i.e. app->priv
  *

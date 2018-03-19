@@ -440,6 +440,27 @@ err_clear_nn:
 	return err;
 }
 
+static int nfp_mbl_repr_init(struct nfp_app *app, struct net_device *netdev)
+{
+	struct nfp_repr *repr = netdev_priv(netdev);
+	struct nfp_mbl_repr *repr_priv;
+
+	repr_priv = vzalloc(sizeof(*repr_priv));
+	if (!repr_priv)
+		return -ENOMEM;
+
+	repr->app_priv = repr_priv;
+
+	return 0;
+}
+
+static void nfp_mbl_repr_clean(struct nfp_app *app, struct net_device *netdev)
+{
+	struct nfp_repr *repr = netdev_priv(netdev);
+
+	vfree(repr->app_priv);
+}
+
 static int nfp_mbl_calc_device_count(void)
 {
 	/* multi-PCIe support not yet available */
@@ -654,6 +675,9 @@ const struct nfp_app_type app_mbl = {
 	.vnic_alloc	= nfp_mbl_app_vnic_alloc,
 	.vnic_init	= nfp_mbl_app_vnic_init,
 	.vnic_clean	= nfp_mbl_app_vnic_clean,
+
+	.repr_init	= nfp_mbl_repr_init,
+	.repr_clean	= nfp_mbl_repr_clean,
 
 	.repr_open	= nfp_mbl_app_repr_netdev_open,
 	.repr_stop	= nfp_mbl_app_repr_netdev_stop,
