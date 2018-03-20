@@ -42,6 +42,14 @@
 
 #include "main.h"
 
+/* Set to non-zero to wait up to specified seconds for UAL registration to
+ * succeed. This is useful for cases where other PCIe devices are known to not
+ * present.
+ */
+static int nfp_ualt_wait = 5;
+module_param(nfp_ualt_wait, int, 0644);
+MODULE_PARM_DESC(nfp_ualt_wait, "Wait up to specified seconds for UAL registration if PCIe's not probed (Default 5s)");
+
 #define UALT_NAME	"ualt_module"
 
 struct ualt_app_meta {
@@ -466,6 +474,7 @@ const struct nfp_ual_ops ops = {
 
 static int __init nfp_ualt_module_init(void)
 {
+	const unsigned long wait_until = jiffies + nfp_ualt_wait * HZ;
 	struct ualt_cookie *priv;
 	int err;
 
@@ -476,6 +485,20 @@ static int __init nfp_ualt_module_init(void)
 	priv->label = 0xD000DDAD;
 
 	err = nfp_ual_register(&ops, priv);
+	while (err == -EAGAIN) {
+		if (time_is_before_eq_jiffies(wait_until)) {
+			pr_err("UAL registration timeout\n");
+			break;
+		}
+
+		if (msleep_interruptible(1000)) {
+			err = -ERESTARTSYS;
+			break;
+		}
+
+		pr_warn("retrying UAL registration\n");
+		err = nfp_ual_register(&ops, priv);
+	}
 	if (err)
 		goto err_free_priv;
 
