@@ -72,6 +72,7 @@ struct ualt_cmsg_hdr {
 
 enum ualt_cmsg_type {
 	UALT_CMSG_PORT =		1,
+	UALT_CMSG_HEARTBEAT =	2,
 };
 
 struct ualt_cmsg_port {
@@ -80,6 +81,12 @@ struct ualt_cmsg_port {
 	u8 pcie;
 	u8 nbi;
 	u8 port;
+};
+
+struct ualt_cmsg_heartbeat {
+	u16 label;
+	u8 me;
+	u8 ctx;
 };
 
 enum ualt_cmsg_port_flag {
@@ -344,6 +351,29 @@ static int ualt_prep_tx_meta(void *cookie, struct sk_buff *skb)
 
 static void ualt_ctrl_msg_rx(void *cookie, struct sk_buff *skb)
 {
+	struct ualt_cmsg_heartbeat *payload;
+	struct ualt_cmsg_hdr *cmsg_hdr;
+
+	cmsg_hdr = ualt_cmsg_get_hdr(skb);
+
+	if (unlikely(cmsg_hdr->version != UALT_CMSG_VERSION)) {
+		pr_warn("cannot handle control message version %u\n",
+			cmsg_hdr->version);
+		goto out_free_skb;
+	}
+
+	if (cmsg_hdr->type == UALT_CMSG_HEARTBEAT) {
+		payload = ualt_cmsg_get_data(skb);
+		pr_debug("rx-heartbeat=[%d/%d]:0x%04x\n", payload->ctx,
+			 payload->me, payload->label);
+	} else {
+		pr_warn("discarding, no handler available for cmsg type %d\n",
+			cmsg_hdr->type);
+		goto out_free_skb;
+	}
+
+out_free_skb:
+	dev_kfree_skb_any(skb);
 }
 
 static int
