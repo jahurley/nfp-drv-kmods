@@ -57,8 +57,9 @@ static struct nfp_mbl_global_data *ctx;
 
 static void nfp_mbl_probe_work(struct work_struct *work)
 {
+	mutex_lock(&ctx->mbl_lock);
 	if (ctx->ual_running)
-		return;
+		goto out_unlock;
 
 	if (ctx->status != NFP_MBL_STATUS_SUCCESS)
 		pr_warn("MBL timeout. Not all devices probed successfully.\n");
@@ -66,6 +67,9 @@ static void nfp_mbl_probe_work(struct work_struct *work)
 	/* If we hit this path, we have timed out. */
 	ctx->status = NFP_MBL_STATUS_TIMEOUT;
 	nfp_mbl_try_init_ual();
+
+out_unlock:
+	mutex_unlock(&ctx->mbl_lock);
 }
 
 static int nfp_mbl_alloc_global_ctx(void)
@@ -78,6 +82,7 @@ static int nfp_mbl_alloc_global_ctx(void)
 		return -ENOMEM;
 
 	INIT_DELAYED_WORK(&ctx->probe_dw, nfp_mbl_probe_work);
+	mutex_init(&ctx->mbl_lock);
 	return 0;
 }
 
@@ -120,12 +125,16 @@ int nfp_mbl_try_init_ual(void)
 
 void nfp_mbl_stop_ual(void)
 {
+	mutex_lock(&ctx->mbl_lock);
 	if (!ctx->ual_ops || !ctx->ual_running)
-		return;
+		goto out_unlock;
 
 	ctx->ual_running = false;
 	if (ctx->ual_ops->clean)
 		ctx->ual_ops->clean(ctx->ual_cookie);
+
+out_unlock:
+	mutex_unlock(&ctx->mbl_lock);
 }
 
 static enum devlink_eswitch_mode eswitch_mode_get(struct nfp_app *app)
@@ -351,6 +360,8 @@ static void nfp_mbl_app_init_complete(struct nfp_app *app)
 			 dev_ctx->type, dev_ctx->pcie_unit);
 
 	if (ctx->init_count >= need) {
+		mutex_lock(&ctx->mbl_lock);
+
 		ctx->status = NFP_MBL_STATUS_SUCCESS;
 
 		/* No need to check the return code here, we can't really do
@@ -359,6 +370,8 @@ static void nfp_mbl_app_init_complete(struct nfp_app *app)
 		 * handling can sort it out.
 		 */
 		nfp_mbl_try_init_ual();
+
+		mutex_unlock(&ctx->mbl_lock);
 
 		cancel_delayed_work_sync(&ctx->probe_dw);
 	} else {
@@ -428,9 +441,11 @@ static int nfp_mbl_app_init(struct nfp_app *app)
 
 	app->priv = dev_ctx;
 
+	mutex_lock(&ctx->mbl_lock);
 	if (ctx->status == NFP_MBL_STATUS_PROBE)
 		queue_delayed_work(system_long_wq, &ctx->probe_dw,
 				   NFP_MBL_PROBE_TIMEOUT * HZ);
+	mutex_unlock(&ctx->mbl_lock);
 
 	nfp_mbl_calc_device_count();
 	return 0;

@@ -64,6 +64,7 @@ int nfp_ual_register(const struct nfp_ual_ops *ops, void *cookie)
 	if (ctx->ual_ops)
 		return -EEXIST;
 
+	mutex_lock(&ctx->mbl_lock);
 	ctx->ual_cookie = cookie;
 	ctx->ual_ops = ops;
 
@@ -77,12 +78,14 @@ int nfp_ual_register(const struct nfp_ual_ops *ops, void *cookie)
 	if (err)
 		goto err_reset_ual;
 
+	mutex_unlock(&ctx->mbl_lock);
 	cancel_delayed_work_sync(&ctx->probe_dw);
 	return 0;
 
 err_reset_ual:
 	ctx->ual_cookie = NULL;
 	ctx->ual_ops = NULL;
+	mutex_unlock(&ctx->mbl_lock);
 	return err;
 }
 
