@@ -797,6 +797,8 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
 	if (err)
 		goto err_stop_app;
 
+	nfp_app_init_complete(pf->app);
+
 	mutex_unlock(&pf->lock);
 
 	return 0;
@@ -824,6 +826,9 @@ void nfp_net_pci_remove(struct nfp_pf *pf)
 	struct nfp_net *nn, *next;
 
 	mutex_lock(&pf->lock);
+
+	nfp_app_clean_begin(pf->app);
+
 	list_for_each_entry_safe(nn, next, &pf->vnics, vnic_list) {
 		if (!nfp_net_is_data_vnic(nn))
 			continue;

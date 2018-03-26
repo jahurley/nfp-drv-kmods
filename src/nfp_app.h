@@ -97,6 +97,8 @@ extern const struct nfp_app_type app_flower;
  * @repr_change_mtu:	MTU change request on repr (make and verify change)
  * @start:	start application logic
  * @stop:	stop application logic
+ * @init_complete:	app initialization completed (notify only)
+ * @clean_begin:	app cleaning to start now (notify only)
  * @ctrl_msg_rx:    control message handler
  * @needs_ctrl_vnic:	does app require ctrl vnic? (if non defined, presence of
  *			of @ctrl_msg_rx dictates this)
@@ -147,6 +149,8 @@ struct nfp_app_type {
 
 	int (*start)(struct nfp_app *app);
 	void (*stop)(struct nfp_app *app);
+	void (*init_complete)(struct nfp_app *app);
+	void (*clean_begin)(struct nfp_app *app);
 
 	void (*ctrl_msg_rx)(struct nfp_app *app, struct sk_buff *skb);
 	bool (*needs_ctrl_vnic)(struct nfp_app *app);
@@ -221,6 +225,18 @@ static inline void nfp_app_clean(struct nfp_app *app)
 {
 	if (app->type->clean)
 		app->type->clean(app);
+}
+
+static inline void nfp_app_init_complete(struct nfp_app *app)
+{
+	if (app->type->init_complete)
+		app->type->init_complete(app);
+}
+
+static inline void nfp_app_clean_begin(struct nfp_app *app)
+{
+	if (app->type->clean_begin)
+		app->type->clean_begin(app);
 }
 
 static inline int nfp_app_vnic_alloc(struct nfp_app *app, struct nfp_net *nn,
