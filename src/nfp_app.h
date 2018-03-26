@@ -98,6 +98,8 @@ extern const struct nfp_app_type app_flower;
  * @start:	start application logic
  * @stop:	stop application logic
  * @ctrl_msg_rx:    control message handler
+ * @needs_ctrl_vnic:	does app require ctrl vnic? (if non defined, presence of
+ *			of @ctrl_msg_rx dictates this)
  * @setup_tc:	setup TC ndo
  * @bpf:	BPF ndo offload-related calls
  * @xdp_offload:    offload an XDP program
@@ -147,6 +149,7 @@ struct nfp_app_type {
 	void (*stop)(struct nfp_app *app);
 
 	void (*ctrl_msg_rx)(struct nfp_app *app, struct sk_buff *skb);
+	bool (*needs_ctrl_vnic)(struct nfp_app *app);
 
 	int (*setup_tc)(struct nfp_app *app, struct net_device *netdev,
 			enum tc_setup_type type, void *type_data);
@@ -322,8 +325,10 @@ static inline const char *nfp_app_name(struct nfp_app *app)
 
 static inline bool nfp_app_needs_ctrl_vnic(struct nfp_app *app)
 {
-	return app && app->type->ctrl_msg_rx &&
-		(nfp_cppcore_pcie_unit(app->cpp) == 0);
+	if (app->type->needs_ctrl_vnic)
+		return app->type->needs_ctrl_vnic(app);
+
+	return !!app->type->ctrl_msg_rx;
 }
 
 static inline bool nfp_app_ctrl_has_meta(struct nfp_app *app)
