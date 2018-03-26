@@ -295,8 +295,8 @@ nfp_mbl_app_spawn_phy_reprs(struct nfp_app *app)
 {
 	struct nfp_eth_table *eth_tbl = app->pf->eth_tbl;
 	struct nfp_mbl_dev_ctx *primary, *dev_ctx;
+	int err, dev_index, type;
 	struct nfp_reprs *reprs;
-	int err, dev_index;
 	unsigned int i;
 
 	reprs = nfp_reprs_alloc(eth_tbl->max_index + 1);
@@ -305,6 +305,8 @@ nfp_mbl_app_spawn_phy_reprs(struct nfp_app *app)
 
 	primary = NFP_MBL_PRIMARY_DEV_CTX(ctx);
 	dev_ctx = app->priv;
+	type = (dev_ctx->type == NFP_MBL_DEV_TYPE_MASTER_PF ?
+		NFP_PORT_PHYS_PORT : NFP_PORT_PHYS_PORT_EXP);
 
 	if (!primary)
 		return -ENODEV;
@@ -323,7 +325,7 @@ nfp_mbl_app_spawn_phy_reprs(struct nfp_app *app)
 		}
 		RCU_INIT_POINTER(reprs->reprs[phys_port], repr);
 
-		port = nfp_port_alloc(app, NFP_PORT_PHYS_PORT, repr);
+		port = nfp_port_alloc(app, type, repr);
 		if (IS_ERR(port)) {
 			err = PTR_ERR(port);
 			goto err_reprs_clean;
@@ -365,6 +367,9 @@ static int nfp_mbl_sriov_enable(struct nfp_app *app, int num_vfs)
 	int err;
 
 	if (!ctx->ual_ops)
+		return -EOPNOTSUPP;
+
+	if (dev_ctx->type != NFP_MBL_DEV_TYPE_MASTER_PF)
 		return -EOPNOTSUPP;
 
 	if (ctx->ual_ops->spawn_vf_reprs) {
@@ -554,6 +559,56 @@ static void nfp_mbl_app_clean_begin(struct nfp_app *app)
 	nfp_mbl_stop_ual();
 }
 
+static void nfp_mbl_app_stop(struct nfp_app *app)
+{
+	struct nfp_mbl_dev_ctx *dev_ctx = app->priv;
+
+	/* Since we won't have a vNIC callbacks for NICmod/port expanders
+	 * we have to cleanup here.
+	 */
+	if (dev_ctx->type != NFP_MBL_DEV_TYPE_MASTER_PF) {
+		nfp_reprs_clean_and_free_by_type(app, NFP_REPR_TYPE_PHYS_PORT);
+
+		ctx->init_count--;
+		ctx->status = NFP_MBL_STATUS_UNBOUND;
+	}
+}
+
+static int nfp_mbl_app_start(struct nfp_app *app)
+{
+	struct nfp_mbl_dev_ctx *dev_ctx = app->priv;
+	int err;
+
+	/* Since we won't have a vNIC callbacks for NICmod/port expanders
+	 * we have to create our reprs here. This is safe due to the strict
+	 * probing order of the devices.
+	 */
+	if (dev_ctx->type != NFP_MBL_DEV_TYPE_MASTER_PF) {
+		err = nfp_mbl_app_spawn_phy_reprs(app);
+		if (err)
+			return err;
+	}
+
+	return 0;
+}
+
+static int nfp_mbl_get_dev_type(struct nfp_pf *pf)
+{
+	const char *partno;
+
+	partno = nfp_hwinfo_lookup(pf->hwinfo, "assembly.partno");
+	if (!partno)
+		return -ENODEV;
+
+	/* For now we base this decision on the AMDA number of the port expander
+	 * mockup.
+	 */
+	if (strcmp(partno, "AMDA0997-0001") == 0)
+		return NFP_MBL_DEV_TYPE_NICMOD;
+
+	return NFP_MBL_DEV_TYPE_MASTER_PF;
+}
+
 static int nfp_mbl_app_init(struct nfp_app *app)
 {
 	const struct nfp_pf *pf = app->pf;
@@ -562,15 +617,25 @@ static int nfp_mbl_app_init(struct nfp_app *app)
 	int err, dev_index;
 	u8 nfp_pcie;
 
+	nfp_pcie = nfp_cppcore_pcie_unit(app->pf->cpp);
+	type = nfp_mbl_get_dev_type(app->pf);
+	if (type < 0)
+		return type;
+
+	dev_index = NFP_MBL_DEV_INDEX(type, nfp_pcie);
+
 	if (!ctx) {
+		/* Enforce probe ordering. NicMods/Port expanders will already
+		 * have firmware loaded by boot time, so may be hitting this
+		 * before the main NFP.
+		 */
+		if (type != NFP_MBL_DEV_TYPE_MASTER_PF || nfp_pcie != 0)
+			return -EPROBE_DEFER;
+
 		err = nfp_mbl_alloc_global_ctx();
 		if (err)
 			return err;
 	}
-
-	type = NFP_MBL_DEV_TYPE_MASTER_PF;
-	nfp_pcie = nfp_cppcore_pcie_unit(app->pf->cpp);
-	dev_index = NFP_MBL_DEV_INDEX(type, nfp_pcie);
 
 	if (nfp_pcie == 0) {
 		if (!pf->eth_tbl) {
@@ -579,14 +644,14 @@ static int nfp_mbl_app_init(struct nfp_app *app)
 			goto err_dealloc_dev_ctx;
 		}
 
-		if (!pf->mac_stats_bar) {
+		if (!pf->mac_stats_bar && type == NFP_MBL_DEV_TYPE_MASTER_PF) {
 			nfp_warn(app->cpp, "MBL requires mac_stats BAR\n");
 			err = -EINVAL;
 			goto err_dealloc_dev_ctx;
 		}
 	}
 
-	if (!pf->vf_cfg_bar) {
+	if (!pf->vf_cfg_bar && type == NFP_MBL_DEV_TYPE_MASTER_PF) {
 		nfp_warn(app->cpp, "MBL requires vf_cfg BAR\n");
 		err = -EINVAL;
 		goto err_dealloc_dev_ctx;
@@ -718,6 +783,14 @@ static void nfp_mbl_app_ctrl_msg_rx(struct nfp_app *app, struct sk_buff *skb)
 	ctx->ual_ops->ctrl_msg_rx(ctx->ual_cookie, skb);
 }
 
+static bool nfp_mbl_app_needs_ctrl_vnic(struct nfp_app *app)
+{
+	struct nfp_mbl_dev_ctx *priv = app->priv;
+
+	return (priv->pcie_unit == 0 &&
+		priv->type == NFP_MBL_DEV_TYPE_MASTER_PF);
+}
+
 static int
 nfp_mbl_repr_vlan_rx_add_vid(struct nfp_app *app,
 			     struct net_device *netdev, __be16 proto,
@@ -815,6 +888,9 @@ const struct nfp_app_type app_mbl = {
 	.init		= nfp_mbl_app_init,
 	.clean		= nfp_mbl_app_clean,
 
+	.start		= nfp_mbl_app_start,
+	.stop		= nfp_mbl_app_stop,
+
 	.init_complete	= nfp_mbl_app_init_complete,
 	.clean_begin	= nfp_mbl_app_clean_begin,
 
@@ -829,6 +905,7 @@ const struct nfp_app_type app_mbl = {
 	.repr_stop	= nfp_mbl_app_repr_netdev_stop,
 
 	.ctrl_msg_rx	= nfp_mbl_app_ctrl_msg_rx,
+	.needs_ctrl_vnic	= nfp_mbl_app_needs_ctrl_vnic,
 
 	.sriov_enable	= nfp_mbl_sriov_enable,
 	.sriov_disable	= nfp_mbl_sriov_disable,
