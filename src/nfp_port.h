@@ -47,18 +47,22 @@ struct nfp_port;
 
 /**
  * enum nfp_port_type - type of port NFP can switch traffic to
- * @NFP_PORT_INVALID:	port is invalid, %NFP_PORT_PHYS_PORT transitions to this
+ * @NFP_PORT_INVALID:	port is invalid, %NFP_PORT_PHYS_PORT,
+ *			%NFP_PORT_PHYS_PORT_EXP transitions to this
  *			state when port disappears because of FW fault or config
  *			change
  * @NFP_PORT_PHYS_PORT:	external NIC port
  * @NFP_PORT_PF_PORT:	logical port of PCI PF
  * @NFP_PORT_VF_PORT:	logical port of PCI VF
+ * @NFP_PORT_PHYS_PORT_EXP:	expander physical port. Behaves mostly the same
+ *				as a %NFP_PORT_PHYS_PORT
  */
 enum nfp_port_type {
 	NFP_PORT_INVALID,
 	NFP_PORT_PHYS_PORT,
 	NFP_PORT_PF_PORT,
 	NFP_PORT_VF_PORT,
+	NFP_PORT_PHYS_PORT_EXP,
 };
 
 /**
@@ -80,9 +84,12 @@ enum nfp_port_flags {
  *			is not defined, use as a boolean
  * @app:	backpointer to the app structure
  * @dl_port:	devlink port structure
- * @eth_id:	for %NFP_PORT_PHYS_PORT port ID in NFP enumeration scheme
- * @eth_port:	for %NFP_PORT_PHYS_PORT translated ETH Table port entry
- * @eth_stats:	for %NFP_PORT_PHYS_PORT MAC stats if available
+ * @eth_id:	for %NFP_PORT_PHYS_PORT, %NFP_PORT_PHYS_PORT_EXP port ID in NFP
+ *		enumeration scheme
+ * @eth_port:	for %NFP_PORT_PHYS_PORT, %NFP_PORT_PHYS_PORT_EXP translated ETH
+ *		Table port entry
+ * @eth_stats:	for %NFP_PORT_PHYS_PORT, %NFP_PORT_PHYS_PORT_EXP MAC stats if
+ *		available
  * @pf_id:	for %NFP_PORT_PF_PORT, %NFP_PORT_VF_PORT ID of the PCI PF (0-3)
  * @vf_id:	for %NFP_PORT_VF_PORT ID of the PCI VF within @pf_id
  * @vnic:	for %NFP_PORT_PF_PORT, %NFP_PORT_VF_PORT vNIC ctrl memory
@@ -100,7 +107,7 @@ struct nfp_port {
 	struct devlink_port dl_port;
 
 	union {
-		/* NFP_PORT_PHYS_PORT */
+		/* NFP_PORT_PHYS_PORT, NFP_PORT_PHYS_PORT_EXP */
 		struct {
 			unsigned int eth_id;
 			struct nfp_eth_table_port *eth_port;

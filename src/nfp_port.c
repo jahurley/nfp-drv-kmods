@@ -144,7 +144,8 @@ nfp_port_from_id(struct nfp_pf *pf, enum nfp_port_type type, unsigned int id)
 
 	lockdep_assert_held(&pf->lock);
 
-	if (type != NFP_PORT_PHYS_PORT)
+	if (type != NFP_PORT_PHYS_PORT &&
+	    type != NFP_PORT_PHYS_PORT_EXP)
 		return NULL;
 
 	list_for_each_entry(port, &pf->ports, port_list)
@@ -158,7 +159,8 @@ struct nfp_eth_table_port *__nfp_port_get_eth_port(struct nfp_port *port)
 {
 	if (!port)
 		return NULL;
-	if (port->type != NFP_PORT_PHYS_PORT)
+	if (port->type != NFP_PORT_PHYS_PORT &&
+	    port->type != NFP_PORT_PHYS_PORT_EXP)
 		return NULL;
 
 	return port->eth_port;
@@ -188,6 +190,7 @@ nfp_port_get_phys_port_name(struct net_device *netdev, char *name, size_t len)
 		return -EOPNOTSUPP;
 
 	switch (port->type) {
+	case NFP_PORT_PHYS_PORT_EXP:
 	case NFP_PORT_PHYS_PORT:
 		eth_port = __nfp_port_get_eth_port(port);
 		if (!eth_port)
@@ -198,6 +201,10 @@ nfp_port_get_phys_port_name(struct net_device *netdev, char *name, size_t len)
 		else
 			n = snprintf(name, len, "p%ds%d", eth_port->label_port,
 				     eth_port->label_subport);
+
+		if (port->type == NFP_PORT_PHYS_PORT_EXP)
+			n = snprintf(name, len, "%se0", name);
+
 		break;
 	case NFP_PORT_PF_PORT:
 		n = snprintf(name, len, "pf%d", port->pf_id);
