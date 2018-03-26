@@ -125,7 +125,7 @@ nfp_net_pf_rtsym_read_optional(struct nfp_pf *pf, const char *format,
 
 static int nfp_net_pf_get_num_ports(struct nfp_pf *pf)
 {
-	return nfp_net_pf_rtsym_read_optional(pf, "nfd_cfg_pf%u_num_ports", 1);
+	return nfp_net_pf_rtsym_read_optional(pf, "nfd_cfg_pf%u_num_ports", 0);
 }
 
 static int nfp_net_pf_get_app_id(struct nfp_pf *pf)
@@ -703,6 +703,42 @@ int nfp_net_refresh_eth_port(struct nfp_port *port)
 	return ret;
 }
 
+static int nfp_net_init_without_vnic(struct nfp_pf *pf)
+{
+	struct devlink *devlink = priv_to_devlink(pf);
+	int err;
+
+	err = nfp_net_pf_app_init(pf, NULL, 0);
+	if (err)
+		return err;
+
+	err = devlink_register(devlink, &pf->pdev->dev);
+	if (err)
+		goto err_app_clean;
+
+	mutex_lock(&pf->lock);
+	pf->ddir = nfp_net_debugfs_device_add(pf->pdev);
+
+	err = nfp_net_pf_app_start(pf);
+	if (err)
+		goto err_clean_ddir;
+
+	nfp_app_init_complete(pf->app);
+
+	mutex_unlock(&pf->lock);
+
+	return 0;
+
+err_clean_ddir:
+	nfp_net_debugfs_dir_clean(&pf->ddir);
+	mutex_unlock(&pf->lock);
+	cancel_work_sync(&pf->port_refresh_work);
+	devlink_unregister(devlink);
+err_app_clean:
+	nfp_net_pf_app_clean(pf);
+	return err;
+}
+
 /*
  * PCI device functions
  */
@@ -731,6 +767,12 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
 	pf->max_data_vnics = nfp_net_pf_get_num_ports(pf);
 	if ((int)pf->max_data_vnics < 0)
 		return pf->max_data_vnics;
+
+	/* We may have a PF that doesn't have a vNIC itself, but forms part of
+	 * an multi-device application.
+	 */
+	if (!pf->max_data_vnics)
+		return nfp_net_init_without_vnic(pf);
 
 	err = nfp_net_pci_map_mem(pf);
 	if (err)
@@ -844,9 +886,14 @@ void nfp_net_pci_remove(struct nfp_pf *pf)
 
 	devlink_unregister(priv_to_devlink(pf));
 
-	nfp_net_pf_free_irqs(pf);
-	nfp_net_pf_app_clean(pf);
-	nfp_net_pci_unmap_mem(pf);
+	/* Apps without a vNIC is a special case */
+	if (!pf->max_data_vnics) {
+		nfp_net_pf_app_clean(pf);
+	} else {
+		nfp_net_pf_free_irqs(pf);
+		nfp_net_pf_app_clean(pf);
+		nfp_net_pci_unmap_mem(pf);
+	}
 
 	cancel_work_sync(&pf->port_refresh_work);
 }
