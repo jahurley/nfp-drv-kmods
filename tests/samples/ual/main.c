@@ -129,10 +129,20 @@ static int ualt_cmsg_port(struct nfp_repr *repr, u8 rx_vnic)
 
 static void ualt_bringup_reprs(struct nfp_repr *repr, void *cookie)
 {
+	struct nfp_mbl_repr *mbl_repr = repr->app_priv;
 	struct nfp_eth_table_port *eth_port;
 	struct ualt_cookie *priv = cookie;
-	u8 rx_vnic, tx_vnic;
+	struct ualt_repr_meta *repr_meta;
 	int err;
+
+	repr_meta = vzalloc(sizeof(*repr_meta));
+	if (!repr_meta) {
+		pr_err("%s: unable to allocate memory, bringup failed\n",
+		       repr->netdev->name);
+		return;
+	}
+
+	mbl_repr->ual_priv = repr_meta;
 
 	/* Stripe over the available PCIe units */
 	while (!((priv->pcie_map >> scratchpad) & 0x1)) {
@@ -142,8 +152,8 @@ static void ualt_bringup_reprs(struct nfp_repr *repr, void *cookie)
 			scratchpad = 0;
 	}
 
-	tx_vnic = scratchpad++;
-	rx_vnic = tx_vnic;
+	repr_meta->tx_vnic = scratchpad++;
+	repr_meta->rx_vnic = repr_meta->tx_vnic;
 
 	err = nfp_ual_set_port_id(repr, 0);
 	if (err)
@@ -161,14 +171,14 @@ static void ualt_bringup_reprs(struct nfp_repr *repr, void *cookie)
 	pr_info("  nbi.base=%u.%u\n", eth_port->nbi, eth_port->base);
 	pr_info("  label=%u.%u\n", eth_port->label_port,
 		eth_port->label_subport);
-	pr_info("  vNIC=rx:%u,tx:%u\n", rx_vnic, tx_vnic);
+	pr_info("  vNIC=rx:%u,tx:%u\n", repr_meta->rx_vnic, repr_meta->tx_vnic);
 
-	err = nfp_ual_select_tx_dev(repr, tx_vnic);
+	err = nfp_ual_select_tx_dev(repr, repr_meta->tx_vnic);
 	if (err)
 		pr_warn("%s: unable to select data vNIC\n",
 			repr->netdev->name);
 
-	err = ualt_cmsg_port(repr, rx_vnic);
+	err = ualt_cmsg_port(repr, repr_meta->rx_vnic);
 	if (err)
 		pr_err("%s: unable to send port ctrl msg: %i\n",
 		       repr->netdev->name, err);
@@ -176,10 +186,17 @@ static void ualt_bringup_reprs(struct nfp_repr *repr, void *cookie)
 
 static void ualt_cleanup_reprs(struct nfp_repr *repr, void *cookie)
 {
+	struct nfp_mbl_repr *mbl_repr = repr->app_priv;
+
 	pr_info("%s: resetting representor\n", repr->netdev->name);
 
 	nfp_ual_set_port_id(repr, NFP_UAL_PORTID_UNSPEC);
 	nfp_ual_select_tx_dev(repr, 0);
+
+	if (mbl_repr->ual_priv) {
+		vfree(mbl_repr->ual_priv);
+		mbl_repr->ual_priv = NULL;
+	}
 }
 
 static int ualt_init(void *cookie, enum nfp_mbl_status_type status)

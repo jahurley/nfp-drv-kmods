@@ -34,9 +34,23 @@
 #ifndef __NFP_UALT_H__
 #define __NFP_UALT_H__ 1
 
+#include "nfp_ual.h"
+
 struct ualt_cookie {
 	u32 label;
 	u8 pcie_map;
 };
+
+struct ualt_repr_meta {
+	u8 rx_vnic;
+	u8 tx_vnic;
+};
+
+static inline struct ualt_repr_meta *ualt_get_repr_meta(struct nfp_repr *repr)
+{
+	struct nfp_mbl_repr *mbl_repr = repr->app_priv;
+
+	return mbl_repr->ual_priv;
+}
 
 #endif
