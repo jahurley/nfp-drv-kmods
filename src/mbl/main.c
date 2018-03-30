@@ -518,6 +518,7 @@ static void nfp_mbl_app_init_complete(struct nfp_app *app)
 
 	/* The app is ready for the UAL when its vNICs have been initialized. */
 	ctx->init_count++;
+	dev_ctx->initialized = true;
 
 	/* This is a violation of probing order for the app. */
 	if (WARN_ON(need < 0))
@@ -556,7 +557,10 @@ static void nfp_mbl_app_init_complete(struct nfp_app *app)
 
 static void nfp_mbl_app_clean_begin(struct nfp_app *app)
 {
+	struct nfp_mbl_dev_ctx *dev_ctx = app->priv;
+
 	nfp_mbl_stop_ual();
+	dev_ctx->initialized = false;
 }
 
 static void nfp_mbl_app_stop(struct nfp_app *app)
@@ -609,10 +613,31 @@ static int nfp_mbl_get_dev_type(struct nfp_pf *pf)
 	return NFP_MBL_DEV_TYPE_MASTER_PF;
 }
 
+static bool
+nfp_mbl_can_probe(struct nfp_pf *pf, enum nfp_mbl_dev_type type, u8 nfp_pcie)
+{
+	struct nfp_mbl_dev_ctx *primary;
+
+	/* Enforce probe ordering. NicMods/Port expanders will already
+	 * have firmware loaded by boot time.
+	 */
+
+	if (!ctx && (type != NFP_MBL_DEV_TYPE_MASTER_PF || nfp_pcie != 0))
+		return false;
+
+	if (ctx) {
+		primary = NFP_MBL_PRIMARY_DEV_CTX(ctx);
+		if (!primary || !primary->initialized)
+			return false;
+	}
+
+	return true;
+}
+
 static int nfp_mbl_app_init(struct nfp_app *app)
 {
-	const struct nfp_pf *pf = app->pf;
 	struct nfp_mbl_dev_ctx *dev_ctx;
+	struct nfp_pf *pf = app->pf;
 	enum nfp_mbl_dev_type type;
 	int err, dev_index;
 	u8 nfp_pcie;
@@ -624,14 +649,10 @@ static int nfp_mbl_app_init(struct nfp_app *app)
 
 	dev_index = NFP_MBL_DEV_INDEX(type, nfp_pcie);
 
-	if (!ctx) {
-		/* Enforce probe ordering. NicMods/Port expanders will already
-		 * have firmware loaded by boot time, so may be hitting this
-		 * before the main NFP.
-		 */
-		if (type != NFP_MBL_DEV_TYPE_MASTER_PF || nfp_pcie != 0)
-			return -EPROBE_DEFER;
+	if (!nfp_mbl_can_probe(pf, type, nfp_pcie))
+		return -EPROBE_DEFER;
 
+	if (!ctx) {
 		err = nfp_mbl_alloc_global_ctx();
 		if (err)
 			return err;

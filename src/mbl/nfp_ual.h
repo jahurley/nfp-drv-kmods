@@ -120,12 +120,14 @@ struct nfp_mbl_repr {
  * @nn:			Pointer to data vNIC
  * @type:		Type of device %NFP_MBL_DEV_TYPE_*
  * @pcie_unit:		PCIe unit number, e.g. 0-3 for main NFP
+ * @bool:		set when initialization for this device is done
  */
 struct nfp_mbl_dev_ctx {
 	struct nfp_app *app;
 	struct nfp_net *nn;
 	enum nfp_mbl_dev_type type;
 	u8 pcie_unit;
+	bool initialized;
 };
 
 /**
