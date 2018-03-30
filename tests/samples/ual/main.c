@@ -89,11 +89,6 @@ struct ualt_cmsg_heartbeat {
 	u8 ctx;
 };
 
-enum ualt_cmsg_port_flag {
-	UALT_PORT_FLAG_ADD =	0,
-	UALT_PORT_FLAG_REMOVE =	1,
-};
-
 #define UALT_PORTID_VLAN		GENMASK(18, 9)
 
 static int scratchpad;
@@ -129,9 +124,8 @@ ualt_cmsg_alloc(unsigned int size, enum ualt_cmsg_type type)
 	return skb;
 }
 
-static int
-ualt_cmsg_port(struct nfp_repr *repr, unsigned int port_id, u8 rx_vnic,
-	       unsigned int flags)
+int ualt_cmsg_port(struct nfp_repr *repr, unsigned int port_id, u8 rx_vnic,
+		   unsigned int flags)
 {
 	struct nfp_eth_table_port *eth_port;
 	struct ualt_cmsg_port *msg;
@@ -212,6 +206,11 @@ static void ualt_bringup_reprs(struct nfp_repr *repr, void *cookie)
 	if (err)
 		pr_err("%s: unable to send port ctrl msg: %i\n",
 		       repr->netdev->name, err);
+
+	err = ualt_debugfs_add_repr(priv, repr);
+	if (err)
+		pr_err("%s: unable to create debugfs entry\n",
+		       repr->netdev->name);
 }
 
 static void ualt_cleanup_reprs(struct nfp_repr *repr, void *cookie)
@@ -514,6 +513,10 @@ static int __init nfp_ualt_module_init(void)
 
 	priv->label = 0xD000DDAD;
 
+	err = ualt_debugfs_create(priv);
+	if (err)
+		goto err_free_priv;
+
 	err = nfp_ual_register(&ops, priv);
 	while (err == -EAGAIN) {
 		if (time_is_before_eq_jiffies(wait_until)) {
@@ -530,10 +533,12 @@ static int __init nfp_ualt_module_init(void)
 		err = nfp_ual_register(&ops, priv);
 	}
 	if (err)
-		goto err_free_priv;
+		goto err_debugfs_destroy;
 
 	return 0;
 
+err_debugfs_destroy:
+	ualt_debugfs_destroy(priv);
 err_free_priv:
 	vfree(priv);
 	return err;
@@ -544,8 +549,10 @@ static void __exit nfp_ualt_module_exit(void)
 	struct ualt_cookie *priv;
 
 	priv = nfp_ual_unregister();
-	if (priv)
+	if (priv) {
+		ualt_debugfs_destroy(priv);
 		vfree(priv);
+	}
 }
 
 module_init(nfp_ualt_module_init);

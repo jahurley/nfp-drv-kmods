@@ -34,11 +34,19 @@
 #ifndef __NFP_UALT_H__
 #define __NFP_UALT_H__ 1
 
+#include "nfp_net_repr.h"
 #include "nfp_ual.h"
+
+enum ualt_cmsg_port_flag {
+	UALT_PORT_FLAG_ADD =	0,
+	UALT_PORT_FLAG_REMOVE =	1,
+};
 
 struct ualt_cookie {
 	u32 label;
 	u8 pcie_map;
+
+	struct dentry *dir;
 };
 
 struct ualt_repr_meta {
@@ -50,7 +58,37 @@ static inline struct ualt_repr_meta *ualt_get_repr_meta(struct nfp_repr *repr)
 {
 	struct nfp_mbl_repr *mbl_repr = repr->app_priv;
 
-	return mbl_repr->ual_priv;
+	return (mbl_repr ? mbl_repr->ual_priv : NULL);
 }
+
+int ualt_cmsg_port(struct nfp_repr *repr, unsigned int port_id, u8 rx_vnic,
+		   unsigned int flags);
+
+#if defined(UALT_DEBUG_FS)
+
+int ualt_debugfs_create(struct ualt_cookie *priv);
+void ualt_debugfs_destroy(struct ualt_cookie *priv);
+int ualt_debugfs_add_repr(struct ualt_cookie *priv, struct nfp_repr *repr);
+
+#else
+
+/* If we don't have debug FS available, just continue without the feature. */
+
+static inline int ualt_debugfs_create(struct ualt_cookie *priv)
+{
+	return 0;
+}
+
+static inline void ualt_debugfs_destroy(struct ualt_cookie *priv)
+{
+}
+
+static int
+ualt_debugfs_add_repr(struct ualt_cookie *priv, struct nfp_repr *repr)
+{
+	return 0;
+}
+
+#endif
 
 #endif

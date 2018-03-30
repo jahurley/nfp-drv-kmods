@@ -19,4 +19,10 @@ KBUILD_EXTRA_SYMBOLS += $(nfp_drv_dir)/Module.symvers
 
 nfp_ualt-objs := \
   main.o
+
+ifeq ($(CONFIG_DEBUG_FS),y)
+  ccflags-y += -DUALT_DEBUG_FS
+  nfp_ualt-objs += \
+    debugfs.o
+  endif
 obj-m += nfp_ualt.o
