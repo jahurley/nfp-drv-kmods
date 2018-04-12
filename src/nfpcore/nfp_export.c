@@ -135,9 +135,13 @@ EXPORT_SYMBOL(nfp_rtsym_get);
 EXPORT_SYMBOL(nfp_rtsym_lookup);
 EXPORT_SYMBOL(nfp_rtsym_read_le);
 
+#ifdef CONFIG_NFP_APP_MBL
+/* Implemented in nfp_app.c */
+
+EXPORT_SYMBOL(nfp_app_from_netdev);
+
 /* Implemented in nfp_ual.c */
 
-#ifdef CONFIG_NFP_APP_MBL
 EXPORT_SYMBOL(nfp_ual_register);
 EXPORT_SYMBOL(nfp_ual_unregister);
 EXPORT_SYMBOL(nfp_ual_get_cookie);
