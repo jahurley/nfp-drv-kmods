@@ -620,7 +620,7 @@ int nfp_net_refresh_port_table_sync(struct nfp_pf *pf)
 	lockdep_assert_held(&pf->lock);
 
 	/* Check for nfp_net_pci_remove() racing against us */
-	if (list_empty(&pf->vnics))
+	if (list_empty(&pf->ports))
 		return 0;
 
 	/* Update state of all ports */
