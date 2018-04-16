@@ -84,6 +84,8 @@ enum nfp_mbl_dev_type {
 	NFP_MBL_DEV_INDEX(NFP_MBL_DEV_TYPE_MAX, NFP_MBL_DEV_ID_MAX)
 #define NFP_MBL_DEV_INDEX_PRIMARY \
 	NFP_MBL_DEV_INDEX(NFP_MBL_DEV_TYPE_MASTER_PF, 0)
+#define NFP_MBL_DEV_TYPE(index)		(index >> 2)
+#define NFP_MBL_DEV_ID(index)		(index & 0x3)
 
 /**
  * enum nfp_mbl_status_type - type of MBL device probe status

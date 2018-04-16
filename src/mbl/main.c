@@ -83,13 +83,24 @@ static void nfp_mbl_phys_link_timer(struct timer_list *timer)
 #endif
 {
 	struct nfp_pf *pf;
+	int i;
 
 	if (!NFP_MBL_PRIMARY_DEV_CTX(ctx))
 		return;
 
-	pf = NFP_MBL_PRIMARY_DEV_CTX(ctx)->app->pf;
+	for (i = 0; i < NFP_MBL_DEV_INDEX_MAX; i++) {
+		if (!ctx->dev_ctx[i])
+			continue;
 
-	queue_work(pf->wq, &pf->port_refresh_work);
+		/* No need to queue work for higher order PCIe units. */
+		if (NFP_MBL_DEV_TYPE(i) == NFP_MBL_DEV_TYPE_MASTER_PF &&
+		    i != NFP_MBL_DEV_INDEX_PRIMARY)
+			continue;
+
+		pf = ctx->dev_ctx[i]->app->pf;
+		queue_work(pf->wq, &pf->port_refresh_work);
+	}
+
 	mod_timer(&ctx->link_timer, jiffies + NFP_MBL_LINK_TIMER * HZ / 1000);
 }
 
