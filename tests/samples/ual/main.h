@@ -37,6 +37,17 @@
 #include "nfp_net_repr.h"
 #include "nfp_ual.h"
 
+enum ualt_status_type {
+	/* These status items comes directly from the nfp_ual.h */
+	UALT_STATUS_PROBE = NFP_MBL_STATUS_PROBE,
+	UALT_STATUS_TIMEOUT = NFP_MBL_STATUS_TIMEOUT,
+	UALT_STATUS_UNBOUND = NFP_MBL_STATUS_UNBOUND,
+	UALT_STATUS_SUCCESS = NFP_MBL_STATUS_SUCCESS,
+
+	/* Now we add some of our own */
+	UALT_STATUS_UNINITIALIZED = 100,
+};
+
 enum ualt_cmsg_port_flag {
 	UALT_PORT_FLAG_ADD =	0,
 	UALT_PORT_FLAG_REMOVE =	1,
@@ -47,6 +58,7 @@ struct ualt_cookie {
 	u8 pcie_map;
 
 	struct dentry *dir;
+	enum ualt_status_type status;
 };
 
 struct ualt_repr_meta {

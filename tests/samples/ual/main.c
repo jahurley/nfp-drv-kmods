@@ -272,13 +272,18 @@ static int ualt_init(void *cookie, enum nfp_mbl_status_type status)
 	}
 
 	nfp_ual_foreach_repr(NULL, cookie, ualt_bringup_reprs);
+	priv->status = status;
 
 	return 0;
 }
 
 static void ualt_clean(void *cookie)
 {
+	struct ualt_cookie *priv = cookie;
+
 	nfp_ual_foreach_repr(NULL, cookie, ualt_cleanup_reprs);
+
+	priv->status = UALT_STATUS_UNINITIALIZED;
 }
 
 static int ualt_repr_open(void *cookie, struct nfp_repr *repr)
@@ -518,6 +523,7 @@ static int __init nfp_ualt_module_init(void)
 		return -ENOMEM;
 
 	priv->label = 0xD000DDAD;
+	priv->status = UALT_STATUS_UNINITIALIZED;
 
 	err = ualt_debugfs_create(priv);
 	if (err)

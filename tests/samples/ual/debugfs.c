@@ -216,6 +216,27 @@ static const struct file_operations ualt_vnics_ops = {
 	.llseek = default_llseek,
 };
 
+static ssize_t
+ualt_status_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
+{
+	struct ualt_cookie *priv = file->private_data;
+	char output[5];
+	ssize_t ret;
+
+	memset(output, 0, sizeof(output));
+	ret = snprintf(output, sizeof(output), "%d\n", priv->status);
+	if (ret > 0)
+		ret = simple_read_from_buffer(buf, size, ppos, output, ret);
+
+	return ret;
+}
+
+static const struct file_operations ualt_status_ops = {
+	.read = ualt_status_read,
+	.open = simple_open,
+	.llseek = default_llseek,
+};
+
 int ualt_debugfs_create(struct ualt_cookie *priv)
 {
 	bool fail = false;
@@ -226,6 +247,8 @@ int ualt_debugfs_create(struct ualt_cookie *priv)
 
 	fail |= !debugfs_create_file("vnics", 0600, priv->dir, priv,
 				     &ualt_vnics_ops);
+	fail |= !debugfs_create_file("status", 0600, priv->dir, priv,
+				     &ualt_status_ops);
 
 	return (fail ? -ENODEV : 0);
 }
