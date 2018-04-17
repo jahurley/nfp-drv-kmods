@@ -286,6 +286,15 @@ static void ualt_clean(void *cookie)
 	priv->status = UALT_STATUS_UNINITIALIZED;
 }
 
+static void ualt_free(void **cookie)
+{
+	struct ualt_cookie *priv = *cookie;
+
+	ualt_debugfs_destroy(priv);
+	vfree(priv);
+	cookie = NULL;
+}
+
 static int ualt_repr_open(void *cookie, struct nfp_repr *repr)
 {
 	pr_info("%s: opened\n", repr->netdev->name);
@@ -489,6 +498,7 @@ const struct nfp_ual_ops ops = {
 
 	.init = ualt_init,
 	.clean = ualt_clean,
+	.free = ualt_free,
 
 	.repr_open = ualt_repr_open,
 	.repr_stop = ualt_repr_stop,
@@ -558,13 +568,7 @@ err_free_priv:
 
 static void __exit nfp_ualt_module_exit(void)
 {
-	struct ualt_cookie *priv;
-
-	priv = nfp_ual_unregister();
-	if (priv) {
-		ualt_debugfs_destroy(priv);
-		vfree(priv);
-	}
+	nfp_ual_unregister();
 }
 
 module_init(nfp_ualt_module_init);
