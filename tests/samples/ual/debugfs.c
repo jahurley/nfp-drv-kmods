@@ -33,6 +33,7 @@
 #include <linux/debugfs.h>
 #include <linux/kernel.h>
 
+#include "nfp_net.h"
 #include "main.h"
 
 static int ualt_dfs_file_get(struct dentry *dentry, int *srcu_idx)
@@ -178,13 +179,55 @@ int ualt_debugfs_add_repr(struct ualt_cookie *priv, struct nfp_repr *repr)
 	return (fail ? -ENODEV : 0);
 }
 
+static ssize_t
+ualt_vnics_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
+{
+	struct nfp_mbl_dev_ctx *dev_ctx;
+	ssize_t ret, bytes_left;
+	char vnics_str[128];
+	char *ptr;
+	int i;
+
+	memset(vnics_str, 0, sizeof(vnics_str));
+
+	ptr = vnics_str;
+	bytes_left = sizeof(vnics_str);
+	for (i = 0; i < NFP_MBL_DEV_INDEX_MAX; i++) {
+		dev_ctx = nfp_ual_get_mbl_dev_ctx(i);
+		if (!dev_ctx || !dev_ctx->nn)
+			continue;
+
+		ret = snprintf(ptr, bytes_left, "%d %s\n", NFP_MBL_DEV_ID(i),
+			       dev_ctx->nn->dp.netdev->name);
+		if (ret < 0)
+			return ret;
+		bytes_left -= ret;
+		ptr += ret;
+	}
+
+	ret = simple_read_from_buffer(buf, size, ppos, vnics_str,
+				      strlen(vnics_str));
+	return ret;
+}
+
+static const struct file_operations ualt_vnics_ops = {
+	.read = ualt_vnics_read,
+	.open = simple_open,
+	.llseek = default_llseek,
+};
+
 int ualt_debugfs_create(struct ualt_cookie *priv)
 {
+	bool fail = false;
+
 	priv->dir = debugfs_create_dir("ualt", NULL);
 	if (!priv->dir)
 		return -EBUSY;
 
-	return 0;
+	fail |= !debugfs_create_file("vnics", 0600, priv->dir, priv,
+				     &ualt_vnics_ops);
+
+	return (fail ? -ENODEV : 0);
 }
 
 void ualt_debugfs_destroy(struct ualt_cookie *priv)
