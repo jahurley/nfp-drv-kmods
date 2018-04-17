@@ -90,19 +90,16 @@ err_reset_ual:
 
 /**
  * nfp_ual_unregister() - unregister an UAL
- *
- * Return: opaque cookie UAL was registered with
  */
-void *nfp_ual_unregister(void)
+void nfp_ual_unregister(void)
 {
 	struct nfp_mbl_global_data *ctx;
 	struct nfp_mbl_dev_ctx *dev_ctx;
 	struct device *dev;
-	void *cookie;
 
 	ctx = nfp_mbl_get_global_ctx();
 	if (!ctx)
-		return NULL;
+		return;
 
 	dev_ctx = ctx->dev_ctx[NFP_MBL_DEV_INDEX_PRIMARY];
 	if (dev_ctx) {
@@ -114,11 +111,10 @@ void *nfp_ual_unregister(void)
 
 	nfp_mbl_stop_ual();
 
-	cookie = ctx->ual_cookie;
-	ctx->ual_cookie = NULL;
-	ctx->ual_ops = NULL;
+	if (ctx->ual_ops->free)
+		ctx->ual_ops->free(&ctx->ual_cookie);
 
-	return cookie;
+	ctx->ual_ops = NULL;
 }
 
 /**

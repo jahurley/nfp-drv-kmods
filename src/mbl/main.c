@@ -133,6 +133,9 @@ static void nfp_mbl_dealloc_ctx(int dev_index)
 		cancel_delayed_work_sync(&ctx->probe_dw);
 		del_timer_sync(&ctx->link_timer);
 
+		if (ctx->ual_ops && ctx->ual_ops->free)
+			ctx->ual_ops->free(&ctx->ual_cookie);
+
 		vfree(ctx);
 		ctx = NULL;
 	}

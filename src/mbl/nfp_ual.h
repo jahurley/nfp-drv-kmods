@@ -140,6 +140,7 @@ struct nfp_mbl_dev_ctx {
  * callbacks:
  * @init:	perform UAL init
  * @clean:	clean UAL state
+ * @free:	UAL expected to free cookie here
  * @repr_open:	representor netdev open callback
  * @repr_stop:	representor netdev stop callback
  * @vnic_change_mtu: MTU change on vNIC netdev has been requested (veto-only,
@@ -164,6 +165,7 @@ struct nfp_ual_ops {
 
 	int (*init)(void *cookie, enum nfp_mbl_status_type status);
 	void (*clean)(void *cookie);
+	void (*free)(void **cookie);
 
 	int (*repr_open)(void *cookie, struct nfp_repr *repr);
 	int (*repr_stop)(void *cookie, struct nfp_repr *repr);
@@ -198,7 +200,7 @@ struct nfp_ual_ops {
 };
 
 int nfp_ual_register(const struct nfp_ual_ops *ops, void *cookie);
-void *nfp_ual_unregister(void);
+void nfp_ual_unregister(void);
 void *nfp_ual_get_cookie(void);
 
 int nfp_ual_set_port_id(struct nfp_repr *repr, u32 port_id);
