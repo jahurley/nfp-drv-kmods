@@ -166,7 +166,7 @@ static void nfp_mbl_repr_close_cb(struct nfp_repr *repr, void *cookie)
 	if (!netif_running(repr->netdev))
 		return;
 
-	netdev_warn(repr->netdev, "closing device\n");
+	netdev_info(repr->netdev, "closing device\n");
 	dev_close(repr->netdev);
 }
 
