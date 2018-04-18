@@ -58,6 +58,8 @@ struct ualt_cookie {
 	u8 pcie_map;
 
 	struct dentry *dir;
+	struct dentry *vnics_file;
+	struct dentry *repr_dir;
 	enum ualt_status_type status;
 };
 
@@ -81,6 +83,7 @@ int ualt_cmsg_port(struct nfp_repr *repr, unsigned int port_id, u8 rx_vnic,
 int ualt_debugfs_create(struct ualt_cookie *priv);
 void ualt_debugfs_destroy(struct ualt_cookie *priv);
 int ualt_debugfs_add_repr(struct ualt_cookie *priv, struct nfp_repr *repr);
+void ualt_debugfs_destroy_reprs(struct ualt_cookie *priv);
 
 #else
 

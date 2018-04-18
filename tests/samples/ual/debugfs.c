@@ -162,23 +162,6 @@ static const struct file_operations ualt_repr_vnic_ops = {
 	.llseek = default_llseek,
 };
 
-int ualt_debugfs_add_repr(struct ualt_cookie *priv, struct nfp_repr *repr)
-{
-	struct dentry *dir;
-	bool fail = false;
-
-	dir = debugfs_create_dir(repr->netdev->name, priv->dir);
-	if (!dir)
-		return -ENODEV;
-
-	fail |= !debugfs_create_file("rx_vnic", 0600, dir, repr,
-				     &ualt_repr_vnic_ops);
-	fail |= !debugfs_create_file("tx_vnic", 0600, dir, repr,
-				     &ualt_repr_vnic_ops);
-
-	return (fail ? -ENODEV : 0);
-}
-
 static ssize_t
 ualt_vnics_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 {
@@ -216,6 +199,57 @@ static const struct file_operations ualt_vnics_ops = {
 	.llseek = default_llseek,
 };
 
+static int ualt_debugfs_create_repr_base(struct ualt_cookie *priv)
+{
+	priv->repr_dir = debugfs_create_dir("reprs", priv->dir);
+	if (!priv->repr_dir)
+		return -EBUSY;
+
+	priv->vnics_file = debugfs_create_file("vnics", 0600, priv->dir, priv,
+					       &ualt_vnics_ops);
+	if (!priv->vnics_file)
+		goto err_remove_repr_dir;
+
+	return 0;
+
+err_remove_repr_dir:
+	debugfs_remove_recursive(priv->repr_dir);
+	return -EBUSY;
+}
+
+int ualt_debugfs_add_repr(struct ualt_cookie *priv, struct nfp_repr *repr)
+{
+	struct dentry *dir;
+	bool fail = false;
+	int ret;
+
+	if (!priv->repr_dir) {
+		ret = ualt_debugfs_create_repr_base(priv);
+		if (ret)
+			return ret;
+	}
+
+	dir = debugfs_create_dir(repr->netdev->name, priv->repr_dir);
+	if (!dir)
+		return -ENODEV;
+
+	fail |= !debugfs_create_file("rx_vnic", 0600, dir, repr,
+				     &ualt_repr_vnic_ops);
+	fail |= !debugfs_create_file("tx_vnic", 0600, dir, repr,
+				     &ualt_repr_vnic_ops);
+
+	return (fail ? -ENODEV : 0);
+}
+
+void ualt_debugfs_destroy_reprs(struct ualt_cookie *priv)
+{
+	debugfs_remove_recursive(priv->repr_dir);
+	debugfs_remove(priv->vnics_file);
+
+	priv->repr_dir = NULL;
+	priv->vnics_file = NULL;
+}
+
 static ssize_t
 ualt_status_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 {
@@ -245,8 +279,6 @@ int ualt_debugfs_create(struct ualt_cookie *priv)
 	if (!priv->dir)
 		return -EBUSY;
 
-	fail |= !debugfs_create_file("vnics", 0600, priv->dir, priv,
-				     &ualt_vnics_ops);
 	fail |= !debugfs_create_file("status", 0600, priv->dir, priv,
 				     &ualt_status_ops);
 

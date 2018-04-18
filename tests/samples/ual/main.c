@@ -281,6 +281,7 @@ static void ualt_clean(void *cookie)
 {
 	struct ualt_cookie *priv = cookie;
 
+	ualt_debugfs_destroy_reprs(priv);
 	nfp_ual_foreach_repr(NULL, cookie, ualt_cleanup_reprs);
 
 	priv->status = UALT_STATUS_UNINITIALIZED;
