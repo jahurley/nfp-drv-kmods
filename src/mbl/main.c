@@ -745,9 +745,21 @@ static void nfp_mbl_app_clean(struct nfp_app *app)
 static int
 nfp_mbl_check_mtu(struct nfp_app *app, struct net_device *netdev, int new_mtu)
 {
+	struct nfp_repr *repr = netdev_priv(netdev);
 	struct nfp_mbl_dev_ctx *priv = app->priv;
+	struct net_device *lower_dev;
 
 	if (nfp_netdev_is_nfp_repr(netdev)) {
+		/* Do the TX vNIC MTU test here, but rely on the UAL module to
+		 * verify the RX MTU.
+		 */
+		lower_dev = repr->dst->u.port_info.lower_dev;
+		if (new_mtu > lower_dev->mtu) {
+			netdev_warn(netdev, "unable to set mtu higher than lower device %s mtu\n",
+				    lower_dev->name);
+			return -EINVAL;
+		}
+
 		if (ctx->ual_ops && ctx->ual_ops->repr_change_mtu)
 			return ctx->ual_ops->repr_change_mtu(ctx->ual_cookie,
 							     netdev, new_mtu);
