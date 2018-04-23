@@ -916,6 +916,9 @@ struct nfp_net_dp *nfp_net_clone_dp(struct nfp_net *nn);
 int nfp_net_ring_reconfig(struct nfp_net *nn, struct nfp_net_dp *new,
 			  struct netlink_ext_ack *extack);
 
+int nfp_net_reconfig_mbox(struct nfp_net *nn, u32 mbox_cmd);
+int nfp_net_reconfig_mbox_post(struct nfp_net *nn, u32 mbox_cmd);
+
 #ifdef CONFIG_NFP_DEBUG
 void nfp_net_debugfs_create(void);
 void nfp_net_debugfs_destroy(void);

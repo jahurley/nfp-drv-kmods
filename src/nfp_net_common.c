@@ -316,7 +316,7 @@ int nfp_net_reconfig(struct nfp_net *nn, u32 update)
  *
  * Return: Negative errno on error, 0 on success
  */
-static int nfp_net_reconfig_mbox(struct nfp_net *nn, u32 mbox_cmd)
+int nfp_net_reconfig_mbox(struct nfp_net *nn, u32 mbox_cmd)
 {
 	u32 mbox = nn->tlv_caps.mbox_off;
 	int ret;
@@ -335,6 +335,32 @@ static int nfp_net_reconfig_mbox(struct nfp_net *nn, u32 mbox_cmd)
 	}
 
 	return -nn_readl(nn, mbox + NFP_NET_CFG_MBOX_SIMPLE_RET);
+}
+
+/**
+ * nfp_net_reconfig_mbox() - Reconfigure the firmware via the mailbox
+ *			asynchronously
+ * @nn:        NFP Net device to reconfigure
+ * @mbox_cmd:  The value for the mailbox command
+ *
+ * Helper function for mailbox updates
+ *
+ * Return: Negative errno on error, 0 on success. No return from firmware is
+ *	provided.
+ */
+int nfp_net_reconfig_mbox_post(struct nfp_net *nn, u32 mbox_cmd)
+{
+	u32 mbox = nn->tlv_caps.mbox_off;
+
+	if (!nfp_net_has_mbox(&nn->tlv_caps)) {
+		nn_err(nn, "no mailbox present, command: %u\n", mbox_cmd);
+		return -EIO;
+	}
+
+	nn_writeq(nn, mbox + NFP_NET_CFG_MBOX_SIMPLE_CMD, mbox_cmd);
+
+	nfp_net_reconfig_post(nn, NFP_NET_CFG_UPDATE_MBOX);
+	return 0;
 }
 
 /* Interrupt configuration and handling
