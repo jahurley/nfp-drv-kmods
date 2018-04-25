@@ -92,6 +92,13 @@ enum nfp_eth_fec {
 #define NFP_FEC_REED_SOLOMON	BIT(NFP_FEC_REED_SOLOMON_BIT)
 #define NFP_FEC_DISABLED	BIT(NFP_FEC_DISABLED_BIT)
 
+/* Calculate port expander port index from cluster perspective.
+ * This is the way the port expander firmware identifies ports.
+ */
+#define NFP_PORTEX_PORTS_PER_CLUSTER	8
+#define NFP_PORTEX_PORT_INDEX(cluster, port) \
+	((((cluster)) * NFP_PORTEX_PORTS_PER_CLUSTER) + (port))
+
 /**
  * struct nfp_eth_table - ETH table information
  * @count:	number of table entries
@@ -101,9 +108,10 @@ enum nfp_eth_fec {
  * @ports.eth_index:	port index according to legacy ethX numbering
  * @ports.index:	chip-wide first channel index
  * @ports.nbi:		NBI index
- * @ports.base:		first channel index (within NBI)
+ * @ports.base:		first MAC port base (within NBI)
  * @ports.lanes:	number of channels
  * @ports.speed:	interface speed (in Mbps)
+ * @ports.channel_base:	first egress channel index
  * @ports.interface:	interface (module) plugged in
  * @ports.media:	media type of the @interface
  * @ports.fec:		forward error correction mode
@@ -122,6 +130,9 @@ enum nfp_eth_fec {
  *			subports)
  * @ports.is_split:	is interface part of a split port
  * @ports.fec_modes_supported:	bitmap of FEC modes supported
+ *
+ * @ports.cluster:	port expander cluster number
+ * @ports.cluster_port:	port expander port number within cluster
  */
 struct nfp_eth_table {
 	unsigned int count;
@@ -133,6 +144,7 @@ struct nfp_eth_table {
 		unsigned int base;
 		unsigned int lanes;
 		unsigned int speed;
+		unsigned int channel_base;
 
 		unsigned int interface;
 		enum nfp_eth_media media;
@@ -160,6 +172,10 @@ struct nfp_eth_table {
 		bool is_split;
 
 		unsigned int fec_modes_supported;
+
+		/* Port expander calculated fields */
+		unsigned int cluster;
+		unsigned int cluster_port;
 	} ports[0];
 };
 
