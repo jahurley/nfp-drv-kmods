@@ -146,9 +146,22 @@ int ualt_cmsg_port(struct nfp_repr *repr, unsigned int port_id, u8 rx_vnic,
 	msg = ualt_cmsg_get_data(skb);
 	msg->port_id = port_id;
 	msg->nbi = eth_port->nbi;
-	msg->port = eth_port->eth_index;
-	if (dev_ctx->type == NFP_MBL_DEV_TYPE_NICMOD)
+	if (dev_ctx->type != NFP_MBL_DEV_TYPE_NICMOD)
+		msg->port = eth_port->eth_index;
+	else {
+		/* NOTE: The port expander mockup doesn't set channel
+		 * base numbers on the unusable ports 0.6 and 0.7. These will
+		 * thus overwrite port 0.0's valid channel_base of 0.
+		 * We disregard those ports entirely. This is not an error
+		 * condition, but we don't want the firmware to become confused.
+		 */
+		if (eth_port->eth_index >= 6)
+			return 0;
+
+		msg->port = NFP_PORTEX_PORT_INDEX(eth_port->cluster,
+						  eth_port->cluster_port);
 		msg->port |= UALT_NICMOD_PORT;
+	}
 	msg->pcie = rx_vnic;
 	msg->flags = flags;
 
@@ -200,6 +213,9 @@ static void ualt_bringup_reprs(struct nfp_repr *repr, void *cookie)
 	pr_info("  nbi.base=%u.%u\n", eth_port->nbi, eth_port->base);
 	pr_info("  label=%u.%u\n", eth_port->label_port,
 		eth_port->label_subport);
+	pr_info("  channel_base=%u\n", eth_port->channel_base);
+	pr_info("  cluster=%u.%u\n", eth_port->cluster,
+		eth_port->cluster_port);
 	pr_info("  vNIC=rx:%u,tx:%u\n", repr_meta->rx_vnic, repr_meta->tx_vnic);
 
 	err = nfp_ual_select_tx_dev(repr, repr_meta->tx_vnic);
