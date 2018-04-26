@@ -359,6 +359,7 @@ int nfp_repr_init(struct nfp_app *app, struct net_device *netdev,
 		  struct net_device *pf_netdev)
 {
 	struct nfp_repr *repr = netdev_priv(netdev);
+	struct nfp_net *nn = netdev_priv(pf_netdev);
 	int err;
 
 	nfp_repr_set_lockdep_class(netdev);
@@ -378,13 +379,34 @@ int nfp_repr_init(struct nfp_app *app, struct net_device *netdev,
 	SWITCHDEV_SET_OPS(netdev, &nfp_port_switchdev_ops);
 
 	if (nfp_app_has_tc(app)) {
-		netdev->features |= NETIF_F_HW_TC;
 		netdev->hw_features |= NETIF_F_HW_TC;
 	}
-	netdev->features |= NETIF_F_HW_VLAN_CTAG_FILTER |
-			NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX;
-	netdev->hw_features |= NETIF_F_HW_VLAN_CTAG_FILTER |
-			NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX;
+
+	/* If the lower vNIC supports some NIC capabilities, then we enable
+	 * them on the repr. We don't allow the repr feature to be modified,
+	 * but when the feature is disabled on the vNIC, the repr feature
+	 * must be disabled too. This happens using an app callback.
+	 */
+	if (nn->cap & NFP_NET_CFG_CTRL_RXVLAN) {
+		netdev->hw_features |= NETIF_F_HW_VLAN_CTAG_RX;
+	}
+	if (nn->cap & NFP_NET_CFG_CTRL_TXVLAN) {
+		if (nn->cap & NFP_NET_CFG_CTRL_LSO2) {
+			nn_warn(nn, "Device advertises both TSO2 and TXVLAN. Refusing to enable TXVLAN.\n");
+		} else {
+			netdev->hw_features |= NETIF_F_HW_VLAN_CTAG_TX;
+		}
+	}
+	if (nn->cap & NFP_NET_CFG_CTRL_CTAG_FILTER) {
+		netdev->hw_features |= NETIF_F_HW_VLAN_CTAG_FILTER;
+	}
+	if (nn->cap & NFP_NET_CFG_CTRL_RXCSUM_ANY) {
+		netdev->hw_features |= NETIF_F_RXCSUM;
+	}
+	if (nn->cap & NFP_NET_CFG_CTRL_TXCSUM) {
+		netdev->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+	}
+	netdev->features = netdev->hw_features;
 
 	err = nfp_app_repr_init(app, netdev);
 	if (err)

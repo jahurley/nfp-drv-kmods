@@ -107,6 +107,15 @@ enum nfp_repr_type {
 };
 #define NFP_REPR_TYPE_MAX (__NFP_REPR_TYPE_MAX - 1)
 
+/**
+ * Some of the netdev features of a reprsentors are directly linked to the
+ * features on the lower vNICs.
+ */
+#define NFP_REPR_LINKED_NETIF_F					\
+	(NETIF_F_RXCSUM | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |	\
+	 NETIF_F_HW_VLAN_CTAG_RX | NETIF_F_HW_VLAN_CTAG_TX |	\
+	 NETIF_F_HW_VLAN_CTAG_FILTER)
+
 extern const struct net_device_ops nfp_repr_netdev_ops;
 
 #ifdef COMPAT__HAVE_METADATA_IP_TUNNEL

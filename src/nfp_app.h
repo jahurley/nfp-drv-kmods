@@ -119,6 +119,7 @@ extern const struct nfp_app_type app_mbl;
  * @repr_vlan_rx_add_vid:	registering VLAN id
  * @repr_vlan_rx_kill_vid:	unregistering VLAN id
  * @repr_set_mac_address:	MAC address change has been requested
+ * @set_repr_features:		called when vnic features are modified
  * @repr_xmit:	hook called during repr xmit call
  */
 struct nfp_app_type {
@@ -190,6 +191,9 @@ struct nfp_app_type {
 
 	int (*repr_set_mac_address)(struct nfp_app *app,
 				    struct net_device *netdev, void *addr);
+
+	int (*set_repr_features)(struct nfp_app *app, struct net_device *netdev,
+				 netdev_features_t features);
 
 	int (*repr_xmit)(struct nfp_app *app, struct sk_buff *skb,
 			 struct nfp_repr *repr);
@@ -521,6 +525,15 @@ nfp_app_repr_set_mac_address(struct nfp_app *app, struct net_device *netdev,
 	if (!app || !app->type->repr_set_mac_address)
 		return 0;
 	return app->type->repr_set_mac_address(app, netdev, addr);
+}
+
+static inline int
+nfp_app_set_repr_features(struct nfp_app *app, struct net_device *netdev,
+			  netdev_features_t features)
+{
+	if (!app || !app->type->set_repr_features)
+		return 0;
+	return app->type->set_repr_features(app, netdev, features);
 }
 
 struct nfp_app *nfp_app_from_netdev(struct net_device *netdev);

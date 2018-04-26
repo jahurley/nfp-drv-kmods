@@ -3285,6 +3285,7 @@ static int nfp_net_set_features(struct net_device *netdev,
 {
 	netdev_features_t changed = netdev->features ^ features;
 	struct nfp_net *nn = netdev_priv(netdev);
+	struct nfp_app *app;
 	u32 new_ctrl;
 	int err;
 
@@ -3343,6 +3344,11 @@ static int nfp_net_set_features(struct net_device *netdev,
 	}
 
 	err = nfp_port_set_features(netdev, features);
+	if (err)
+		return err;
+
+	app = nfp_app_from_netdev(netdev);
+	err = nfp_app_set_repr_features(app, netdev, features);
 	if (err)
 		return err;
 
