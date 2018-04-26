@@ -458,11 +458,24 @@ static void nfp_mbl_app_vnic_clean(struct nfp_app *app, struct nfp_net *nn)
 static int nfp_mbl_app_vnic_init(struct nfp_app *app, struct nfp_net *nn)
 {
 	struct nfp_mbl_dev_ctx *dev_ctx = app->priv;
-	int err;
+	int err, i;
 
 	if (app->pf->num_vfs) {
 		nfp_mbl_err(dev_ctx, "SR-IOV VFs must be disabled before initializing the MBL\n");
 		return -EOPNOTSUPP;
+	}
+
+	/* Since we can have multiple vNICs and reprs can swap between them
+	 * dynamically, we need to ensure they all provide the same capabilities
+	 */
+	for (i = 0; i < NFP_MBL_DEV_INDEX_MAX; i++) {
+		if (!ctx->dev_ctx[i] || !ctx->dev_ctx[i]->nn)
+			continue;
+
+		if (nn->cap != ctx->dev_ctx[i]->nn->cap) {
+			nfp_mbl_err(dev_ctx, "all vNICs must advertise the same capabilities\n");
+			return -EINVAL;
+		}
 	}
 
 	dev_ctx->nn = nn;
@@ -926,6 +939,91 @@ nfp_mbl_repr_xmit(struct nfp_app *app, struct sk_buff *skb,
 	return 0;
 }
 
+static void
+nfp_mbl_set_reprs_feature(struct nfp_reprs *reprs, netdev_features_t feature,
+			  bool set)
+{
+	struct net_device *netdev;
+	int i;
+
+	for (i = 0; reprs && i < reprs->num_reprs; i++) {
+		netdev = rcu_dereference(reprs->reprs[i]);
+		if (!netdev)
+			continue;
+
+		if ((set && (netdev->features & feature)) ||
+		    (!set && !(netdev->features & feature)))
+			continue;
+
+		netdev_info(netdev, "%s feature %pNF, lower device changed\n",
+			(set ? "enable" : "disable"), &feature);
+
+		if (set)
+			netdev->wanted_features |= feature;
+		else
+			netdev->wanted_features &= ~feature;
+
+		netdev_update_features(netdev);
+
+		if ((!set && (netdev->features & feature)) ||
+		    (set && !(netdev->features & feature)))
+			netdev_warn(netdev, "failed to sync %pNF!\n",
+				    &feature);
+	}
+}
+
+static int
+nfp_mbl_sync_repr_features(struct nfp_app *app, struct net_device *netdev,
+			   netdev_features_t features)
+{
+	netdev_features_t interested_features = NFP_REPR_LINKED_NETIF_F;
+	struct nfp_mbl_dev_ctx *dev_ctx = app->priv;
+	netdev_features_t feature;
+	struct nfp_reprs *reprs;
+	int feature_bit, i, j;
+	bool set;
+
+
+	/* Since the MBL allows dynamic allocation of reprs to vNICs and
+	 * doesn't enforce any restrictions on which vNIC is used to receive
+	 * repr traffic, it enforces NIC offload features in an all or nothing
+	 * fashion. We can only enable a feature if all the vNICs have that
+	 * feature enabled.
+	 */
+
+	for_each_netdev_feature(&interested_features, feature_bit) {
+		feature = __NETIF_F_BIT(feature_bit);
+
+		/* Do we want this feature enabled or disabled */
+		set = features & feature;
+		for (i = 0; set && i < NFP_MBL_DEV_INDEX_MAX; i++) {
+			struct nfp_net *nn;
+
+			if (!ctx->dev_ctx[i] || !ctx->dev_ctx[i]->nn ||
+			    ctx->dev_ctx[i] == dev_ctx)
+				continue;
+
+			nn = ctx->dev_ctx[i]->nn;
+			if (!(nn->dp.netdev->features & feature))
+				set = false;
+		}
+
+		for (i = 0; i < NFP_MBL_DEV_INDEX_MAX; i++) {
+			if (!ctx->dev_ctx[i])
+				continue;
+
+			rcu_read_lock();
+			for (j = 0; j <= NFP_REPR_TYPE_MAX; j++) {
+				reprs = nfp_ual_get_reprs(i, j);
+				nfp_mbl_set_reprs_feature(reprs, feature, set);
+			}
+			rcu_read_unlock();
+		}
+	}
+
+	return 0;
+}
+
 const struct nfp_app_type app_mbl = {
 	.id		= NFP_APP_MBL,
 	.name		= "mbl",
@@ -961,6 +1059,7 @@ const struct nfp_app_type app_mbl = {
 	.repr_get	= nfp_mbl_app_repr_get,
 	.check_mtu	= nfp_mbl_check_mtu,
 	.repr_set_mac_address = nfp_mbl_set_mac_address,
+	.set_repr_features = nfp_mbl_sync_repr_features,
 
 	.repr_xmit	= nfp_mbl_repr_xmit,
 	.repr_vlan_rx_add_vid = nfp_mbl_repr_vlan_rx_add_vid,
