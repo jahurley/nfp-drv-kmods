@@ -349,7 +349,7 @@ void nfp_ual_foreach_repr(struct nfp_mbl_dev_ctx *ctx, void *repr_cookie,
 	struct nfp_app *app;
 
 	f_idx = (ctx ? nfp_ual_get_mbl_dev_index_from_ctx(ctx) : -1);
-	for (dev_index = 0; dev_index <= NFP_MBL_DEV_INDEX_MAX; dev_index++) {
+	for (dev_index = 0; dev_index < NFP_MBL_DEV_INDEX_MAX; dev_index++) {
 		if (ctx && dev_index != f_idx)
 			continue;
 
