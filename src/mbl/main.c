@@ -351,7 +351,7 @@ nfp_mbl_app_spawn_phy_reprs(struct nfp_app *app)
 		}
 
 		SET_NETDEV_DEV(repr, &primary->nn->pdev->dev);
-		nfp_net_get_mac_addr(app->pf, port);
+		nfp_net_get_mac_addr(app->pf, repr, port);
 
 		port_id = nfp_mbl_portid(dev_index, NFP_REPR_TYPE_PHYS_PORT,
 					 phys_port);
