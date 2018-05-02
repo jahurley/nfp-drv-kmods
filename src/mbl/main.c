@@ -893,6 +893,7 @@ nfp_mbl_repr_vlan_rx_add_vid(struct nfp_app *app,
 	 * lower dev.
 	 */
 	repr_priv->vlan_dst[vid]->u.port_info.lower_dev = NULL;
+	return 0;
 
 err_kill_vid:
 	if (ctx->ual_ops->repr_vlan_rx_kill_vid)
