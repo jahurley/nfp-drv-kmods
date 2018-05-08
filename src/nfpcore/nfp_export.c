@@ -134,6 +134,7 @@ EXPORT_SYMBOL(nfp_rtsym_count);
 EXPORT_SYMBOL(nfp_rtsym_get);
 EXPORT_SYMBOL(nfp_rtsym_lookup);
 EXPORT_SYMBOL(nfp_rtsym_read_le);
+EXPORT_SYMBOL(nfp_rtsym_writeq);
 
 #ifdef CONFIG_NFP_APP_MBL
 /* Implemented in nfp_app.c */
