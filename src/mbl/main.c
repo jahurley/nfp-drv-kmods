@@ -476,6 +476,12 @@ static int nfp_mbl_app_vnic_init(struct nfp_app *app, struct nfp_net *nn)
 			nfp_mbl_err(dev_ctx, "all vNICs must advertise the same capabilities\n");
 			return -EINVAL;
 		}
+
+		if (nn->tlv_caps.extended_caps !=
+		    ctx->dev_ctx[i]->nn->tlv_caps.extended_caps) {
+			nfp_mbl_err(dev_ctx, "all vNICs must advertise the same extended capabilities\n");
+			return -EINVAL;
+		}
 	}
 
 	dev_ctx->nn = nn;
