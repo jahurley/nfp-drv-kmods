@@ -407,6 +407,7 @@ struct nfp_net_rx_ring {
  * @hw_csum_rx_inner_ok: Counter of packets where the inner HW checksum was OK
  * @hw_csum_rx_complete: Counter of packets with CHECKSUM_COMPLETE reported
  * @hw_csum_rx_error:	 Counter of packets with bad checksums
+ * @hw_ipsec_rx_ok:	Counter of packets with IPsec hardware decrypted
  * @tx_sync:	    Seqlock for atomic updates of TX stats
  * @tx_pkts:	    Number of Transmitted packets
  * @tx_bytes:	    Number of Transmitted bytes
@@ -414,6 +415,7 @@ struct nfp_net_rx_ring {
  * @hw_csum_tx_inner:	 Counter of inner TX checksum offload requests
  * @tx_gather:	    Counter of packets with Gather DMA
  * @tx_lso:	    Counter of LSO packets sent
+ * @hw_ipsec_tx:	Counter of IPsec offload requests
  * @tx_errors:	    How many TX errors were encountered
  * @tx_busy:        How often was TX busy (no space)?
  * @rx_replace_buf_alloc_fail:	Counter of RX buffer allocation failures
@@ -450,6 +452,7 @@ struct nfp_net_r_vector {
 	u64 hw_csum_rx_ok;
 	u64 hw_csum_rx_inner_ok;
 	u64 hw_csum_rx_complete;
+	u64 hw_ipsec_rx_ok;
 
 	struct nfp_net_tx_ring *xdp_ring;
 
@@ -460,6 +463,7 @@ struct nfp_net_r_vector {
 	u64 hw_csum_tx_inner;
 	u64 tx_gather;
 	u64 tx_lso;
+	u64 hw_ipsec_tx;
 
 	u64 hw_csum_rx_error;
 	u64 rx_replace_buf_alloc_fail;

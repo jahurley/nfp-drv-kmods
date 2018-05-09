@@ -845,7 +845,9 @@ static int nfp_net_prep_port_id(struct sk_buff *skb)
 }
 #endif
 
-static int nfp_net_prep_tx_meta(struct nfp_app *app, struct sk_buff *skb)
+static int
+nfp_net_prep_tx_meta(struct nfp_app *app, struct sk_buff *skb,
+		     struct nfp_net_r_vector *r_vec)
 {
 	int res, md_bytes, shift = NFP_NET_META_FIELD_SIZE;
 	unsigned char *data;
@@ -861,8 +863,12 @@ static int nfp_net_prep_tx_meta(struct nfp_app *app, struct sk_buff *skb)
 	res = nfp_net_ipsec_tx_prep(skb);
 	if (unlikely(res < 0))
 		return res;
-	if (res)
+	if (res) {
 		meta_id = (meta_id << shift) | NFP_NET_META_IPSEC;
+		u64_stats_update_begin(&r_vec->tx_sync);
+		r_vec->hw_ipsec_tx++;
+		u64_stats_update_end(&r_vec->tx_sync);
+	}
 	md_bytes += res;
 
 	res = nfp_net_prep_app_meta(app, skb);
@@ -925,7 +931,7 @@ static int nfp_net_tx(struct sk_buff *skb, struct net_device *netdev)
 		return NETDEV_TX_BUSY;
 	}
 
-	md_bytes = nfp_net_prep_tx_meta(nn->app, skb);
+	md_bytes = nfp_net_prep_tx_meta(nn->app, skb, r_vec);
 	if (unlikely(md_bytes < 0))
 		goto exit_flush;
 
@@ -1943,6 +1949,10 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
 				nfp_net_rx_drop(dp, r_vec, rx_ring, NULL, skb);
 				continue;
 			}
+
+			u64_stats_update_begin(&r_vec->rx_sync);
+			r_vec->hw_ipsec_rx_ok++;
+			u64_stats_update_end(&r_vec->rx_sync);
 		}
 
 		if (rxd->rxd.flags & PCIE_DESC_RX_VLAN)
