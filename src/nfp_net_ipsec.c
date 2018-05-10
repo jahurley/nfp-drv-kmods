@@ -49,6 +49,7 @@
 #define NFP_NET_IPSEC_SAIDX_TO_HANDLE(_saidx) ((_saidx) + 1)
 #define NFP_NET_IPSEC_HANDLE_TO_SAIDX(_handle) ((_handle) - 1)
 
+#define NFP_NET_IPSEC_HANDLE_ERROR     (~0U)
 #define NFP_NET_IPSEC_MAX_SA_CNT       (16 * 1024)
 
 struct nfp_net_ipsec_sa_data {
@@ -524,7 +525,12 @@ static int nfp_net_xfrm_add_state(struct xfrm_state *x)
 error:
 	mutex_unlock(&ipd->lock);
 	ida_simple_remove(&ipd->ida_handle, saidx);
-	return err;
+
+	/* XXX: This is a workaround for a core XFRM problem. If the offload
+	 * fails, the ref count of the netdev will become negative.
+	 */
+	x->xso.offload_handle = NFP_NET_IPSEC_HANDLE_ERROR;
+	return 0;
 }
 
 static void
@@ -562,7 +568,7 @@ static void nfp_net_xfrm_del_state(struct xfrm_state *x)
 {
 	struct nfp_net_ipsec_data *ipd = nfp_ipsec_get_handle(x->xso.dev);
 
-	if (!x->xso.offload_handle)
+	if (x->xso.offload_handle == NFP_NET_IPSEC_HANDLE_ERROR)
 		return;
 
 	mutex_lock(&ipd->lock);
@@ -577,7 +583,7 @@ static void nfp_net_xfrm_free_state(struct xfrm_state *x)
 	struct nfp_net_ipsec_data *ipd;
 	int saidx;
 
-	if (!x->xso.offload_handle)
+	if (x->xso.offload_handle == NFP_NET_IPSEC_HANDLE_ERROR)
 		return;
 
 	ipd = nfp_ipsec_get_handle(x->xso.dev);
@@ -595,6 +601,11 @@ static void nfp_net_xfrm_free_state(struct xfrm_state *x)
 
 static bool nfp_net_ipsec_offload_ok(struct sk_buff *skb, struct xfrm_state *x)
 {
+	if (x->xso.offload_handle == NFP_NET_IPSEC_HANDLE_ERROR) {
+		pr_warn_ratelimited("xfrm offload failed, invalid handle\n");
+		return false;
+	}
+
 	/* XXX: test for unsupported offloads */
 	return true;
 }
@@ -614,7 +625,7 @@ int nfp_net_ipsec_tx_prep(struct sk_buff *skb)
 	 */
 
 	x = xfrm_input_state(skb);
-	if (unlikely(!x || !x->xso.offload_handle))
+	if (unlikely(!x || x->xso.offload_handle == NFP_NET_IPSEC_HANDLE_ERROR))
 		return 0;
 
 	if (unlikely(skb_cow_head(skb, 12))) {
