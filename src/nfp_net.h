@@ -59,6 +59,7 @@
 #endif
 
 #include "nfp_net_ctrl.h"
+#include "nfp_net_ipsec.h"
 
 #define nn_pr(nn, lvl, fmt, args...)					\
 	({								\
@@ -508,6 +509,7 @@ struct nfp_stat_pair {
  * @tx_rings:		Array of pre-allocated TX ring structures
  * @rx_rings:		Array of pre-allocated RX ring structures
  * @ctrl_bar:		Pointer to mapped control BAR
+ * @ipsec_cm:           Local IPsec offload config message area
  *
  * @txd_cnt:		Size of the TX ring in number of descriptors
  * @rxd_cnt:		Size of the RX ring in number of descriptors
@@ -539,6 +541,7 @@ struct nfp_net_dp {
 	struct nfp_net_rx_ring *rx_rings;
 
 	u8 __iomem *ctrl_bar;
+	struct nfp_ipsec_cfg_mssg ipsec_cm;
 
 	/* Cold data follows */
 

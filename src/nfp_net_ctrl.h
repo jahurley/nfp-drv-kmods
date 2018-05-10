@@ -427,6 +427,7 @@
 
 #define NFP_NET_CFG_MBOX_CMD_CTAG_FILTER_ADD 1
 #define NFP_NET_CFG_MBOX_CMD_CTAG_FILTER_KILL 2
+#define NFP_NET_CFG_MBOX_CMD_IPSEC	3
 
 /**
  * VLAN filtering using general use mailbox
@@ -439,6 +440,12 @@
 #define  NFP_NET_CFG_VLAN_FILTER_VID	NFP_NET_CFG_VLAN_FILTER
 #define  NFP_NET_CFG_VLAN_FILTER_PROTO	 (NFP_NET_CFG_VLAN_FILTER + 2)
 #define NFP_NET_CFG_VLAN_FILTER_SZ	 0x0004
+
+/**
+ * IPsec configuration using general use mailbox
+ * %NFP_NET_CFG_IPSEC_CFG:		Base address of IPsec config mailbox
+ */
+#define NFP_NET_CFG_IPSEC_CFG		NFP_NET_CFG_MBOX_SIMPLE_VAL
 
 /**
  * TLV capabilities
