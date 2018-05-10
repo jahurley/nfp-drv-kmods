@@ -117,6 +117,15 @@ int nfp_net_tlv_caps_parse(struct device *dev, u8 __iomem *ctrl_mem,
 				caps->mbox_len = length;
 			}
 			break;
+		case NFP_NET_CFG_TLV_TYPE_EXTENDED_CAP:
+			if (length != 8) {
+				dev_err(dev, "Extended capability TLV should be 8B, is %dB\n",
+					length);
+				return -EINVAL;
+			}
+
+			caps->extended_caps = readq(data);
+			break;
 		default:
 			if (!FIELD_GET(NFP_NET_CFG_TLV_HEADER_REQUIRED, hdr))
 				break;

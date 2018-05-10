@@ -489,12 +489,23 @@
  * %NFP_NET_CFG_TLV_TYPE_MBOX:
  * Variable, mailbox area.  Overwrites the default location which is
  * %NFP_NET_CFG_MBOX_BASE and length %NFP_NET_CFG_MBOX_VAL_MAX_SZ.
+ *
+ * %NFP_NET_CFG_TLV_TYPE_EXTENDED_CAP:
+ * Double word, bitmap with extended vNIC offload capabilities beyond those
+ * available in %NFP_NET_CFG_CTRL.
  */
 #define NFP_NET_CFG_TLV_TYPE_UNKNOWN		0
 #define NFP_NET_CFG_TLV_TYPE_RESERVED		1
 #define NFP_NET_CFG_TLV_TYPE_END		2
 #define NFP_NET_CFG_TLV_TYPE_ME_FREQ		3
 #define NFP_NET_CFG_TLV_TYPE_MBOX		4
+
+#define NFP_NET_CFG_TLV_TYPE_EXTENDED_CAP	6
+
+/**
+ * Defines the %NFP_NET_CFG_TLV_TYPE_EXTENDED_CAP capability bits.
+ */
+#define  NFP_NET_CFG_CTRL_EXT_IPSEC	  (0x1 <<  0) /* IPsec offload */
 
 struct device;
 
@@ -503,11 +514,13 @@ struct device;
  * @me_freq_mhz:	ME clock_freq (MHz)
  * @mbox_off:		vNIC mailbox area offset
  * @mbox_len:		vNIC mailbox area length
+ * @extended_caps:	vNIC extended capabilities
  */
 struct nfp_net_tlv_caps {
 	u32 me_freq_mhz;
 	unsigned int mbox_off;
 	unsigned int mbox_len;
+	u64 extended_caps;
 };
 
 int nfp_net_tlv_caps_parse(struct device *dev, u8 __iomem *ctrl_mem,
