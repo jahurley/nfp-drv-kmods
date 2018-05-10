@@ -408,9 +408,17 @@ int nfp_repr_init(struct nfp_app *app, struct net_device *netdev,
 	if (nn->cap & NFP_NET_CFG_CTRL_TXCSUM) {
 		netdev->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
 	}
+	if (nn->tlv_caps.extended_caps & NFP_NET_CFG_CTRL_EXT_IPSEC) {
+		if (!(pf_netdev->hw_features & NETIF_F_HW_ESP) ||
+		    nfp_net_ipsec_init(netdev)) {
+			nn_warn(nn, "Unable to enable IPsec offload on repr device %s.\n",
+				netdev->name);
+		} else {
+			netdev->hw_features |= NETIF_F_HW_ESP;
+			netdev->hw_enc_features |= NETIF_F_HW_ESP;
+		}
+	}
 	netdev->features = netdev->hw_features;
-
-	nfp_net_ipsec_init(netdev);
 
 	err = nfp_app_repr_init(app, netdev);
 	if (err)

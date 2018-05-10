@@ -117,7 +117,7 @@ enum nfp_repr_type {
 #define NFP_REPR_LINKED_NETIF_F					\
 	(NETIF_F_RXCSUM | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |	\
 	 NETIF_F_HW_VLAN_CTAG_RX | NETIF_F_HW_VLAN_CTAG_TX |	\
-	 NETIF_F_HW_VLAN_CTAG_FILTER)
+	 NETIF_F_HW_VLAN_CTAG_FILTER | NETIF_F_HW_ESP)
 
 extern const struct net_device_ops nfp_repr_netdev_ops;
 

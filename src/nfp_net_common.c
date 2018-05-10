@@ -3972,6 +3972,15 @@ static void nfp_net_netdev_init(struct nfp_net *nn)
 		netdev->hw_features |= NETIF_F_HW_VLAN_CTAG_FILTER;
 		nn->dp.ctrl |= NFP_NET_CFG_CTRL_CTAG_FILTER;
 	}
+	if (nn->tlv_caps.extended_caps & NFP_NET_CFG_CTRL_EXT_IPSEC) {
+		if (nfp_net_ipsec_init(netdev)) {
+			nn_warn(nn,
+				"Unable to enable IPsec offload on device.\n");
+		} else {
+			netdev->hw_features |= NETIF_F_HW_ESP;
+			netdev->hw_enc_features |= NETIF_F_HW_ESP;
+		}
+	}
 
 	netdev->features = netdev->hw_features;
 
@@ -3985,8 +3994,6 @@ static void nfp_net_netdev_init(struct nfp_net *nn)
 	/* Finalise the netdev setup */
 	netdev->netdev_ops = &nfp_net_netdev_ops;
 	netdev->watchdog_timeo = msecs_to_jiffies(5 * 1000);
-
-	nfp_net_ipsec_init(netdev);
 
 	SWITCHDEV_SET_OPS(netdev, &nfp_port_switchdev_ops);
 
