@@ -40,6 +40,7 @@ struct metadata_dst;
 struct nfp_app;
 struct nfp_net;
 struct nfp_port;
+struct nfp_net_ipsec_data;
 
 #ifdef COMPAT__HAVE_METADATA_IP_TUNNEL
 #include <net/dst_metadata.h>
@@ -80,6 +81,7 @@ struct nfp_repr_pcpu_stats {
  * @port:	Port of representor
  * @app:	APP handle
  * @stats:	Statistic of packets hitting CPU
+ * @ipsec_data:	store per repr IPsec handle
  * @app_priv:	Pointer for APP data
  */
 struct nfp_repr {
@@ -88,6 +90,7 @@ struct nfp_repr {
 	struct nfp_port *port;
 	struct nfp_app *app;
 	struct nfp_repr_pcpu_stats __percpu *stats;
+	struct nfp_net_ipsec_data *ipsec_data;
 	void *app_priv;
 };
 

@@ -45,6 +45,7 @@
 #include "nfp_main.h"
 #include "nfp_net_ctrl.h"
 #include "nfp_net_repr.h"
+#include "nfp_net_ipsec.h"
 #include "nfp_net_sriov.h"
 #include "nfp_port.h"
 
@@ -334,6 +335,7 @@ static void nfp_repr_clean(struct nfp_repr *repr)
 {
 	unregister_netdev(repr->netdev);
 	nfp_app_repr_clean(repr->app, repr->netdev);
+	nfp_net_ipsec_clean(repr->netdev);
 	dst_release((struct dst_entry *)repr->dst);
 	nfp_port_free(repr->port);
 }
@@ -408,9 +410,11 @@ int nfp_repr_init(struct nfp_app *app, struct net_device *netdev,
 	}
 	netdev->features = netdev->hw_features;
 
+	nfp_net_ipsec_init(netdev);
+
 	err = nfp_app_repr_init(app, netdev);
 	if (err)
-		goto err_clean;
+		goto err_ipsec_clean;
 
 	err = register_netdev(netdev);
 	if (err)
@@ -420,7 +424,8 @@ int nfp_repr_init(struct nfp_app *app, struct net_device *netdev,
 
 err_repr_clean:
 	nfp_app_repr_clean(app, netdev);
-err_clean:
+err_ipsec_clean:
+	nfp_net_ipsec_clean(netdev);
 	dst_release((struct dst_entry *)repr->dst);
 	return err;
 }

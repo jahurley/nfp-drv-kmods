@@ -144,6 +144,7 @@ struct nfp_eth_table_port;
 struct nfp_net;
 struct nfp_net_r_vector;
 struct nfp_port;
+struct nfp_net_ipsec_data;
 
 /* Convenience macro for wrapping descriptor index on ring size */
 #define D_IDX(ring, idx)	((idx) & ((ring)->cnt - 1))
@@ -601,6 +602,7 @@ struct nfp_net_dp {
  * @pdev:		Backpointer to PCI device
  * @app:		APP handle if available
  * @port:		Pointer to nfp_port structure if vNIC is a port
+ * @ipsec_data:		store per repr IPsec handle
  * @app_priv:		APP private data for this vNIC
  */
 struct nfp_net {
@@ -673,6 +675,7 @@ struct nfp_net {
 
 	struct nfp_port *port;
 
+	struct nfp_net_ipsec_data *ipsec_data;
 	void *app_priv;
 };
 

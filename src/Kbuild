@@ -13,6 +13,8 @@ CONFIG_NFP_EXPORTS ?= y
 CONFIG_NFP_NET_PF ?= y
 # Include code for the VFs
 CONFIG_NFP_NET_VF ?= y
+# Include code for IPSEC offload
+CONFIG_NFP_NET_IPSEC ?= y
 
 ccflags-y := $(CFLAGS_EXTRA)
 
@@ -104,6 +106,10 @@ KERNEL_GE_4_9 := \
 	$(shell [ $(VERSION) -gt 4 -o \
 	\( $(VERSION) -eq 4 -a $(PATCHLEVEL) -ge 9 \) ] && echo y)
 
+KERNEL_GE_4_14 := \
+	$(shell [ $(VERSION) -gt 4 -o \
+	\( $(VERSION) -eq 4 -a $(PATCHLEVEL) -ge 14 \) ] && echo y)
+
 KERNEL_GE_4_18 := \
 	$(shell grep UDP_SEGMENT \
 	$(srctree)/include/uapi/linux/udp.h > /dev/null && echo y)
@@ -121,6 +127,16 @@ ifeq ($(CONFIG_NFP_USER_SPACE_CPP),y)
 endif
 ifeq ($(CONFIG_NFP_EXPORTS),y)
   nfp-objs += nfpcore/nfp_export.o
+endif
+
+ifneq ($(CONFIG_XFRM_OFFLOAD),y)
+  $(warning NFP: XFRM offload not available, no IPsec offload support)
+  CONFIG_NFP_NET_IPSEC = n
+else
+  ifneq ($(KERNEL_GE_4_14),y)
+    $(warning NFP: XFRM offload bug in older kernels, disabling IPsec offload support)
+    CONFIG_NFP_NET_IPSEC = n
+  endif
 endif
 
 ifneq (,$(filter y,$(CONFIG_NFP_NET_PF) $(CONFIG_NFP_NET_VF)))
@@ -196,6 +212,11 @@ ifneq (,$(filter y,$(CONFIG_NFP_NET_PF) $(CONFIG_NFP_NET_VF)))
         $(warning Please contact Netronome Support if these app are required.)
       endif
     endif
+  endif
+
+  ifeq ($(CONFIG_NFP_NET_IPSEC),y)
+    nfp-objs += nfp_net_ipsec.o
+    ccflags-y += -DCONFIG_NFP_NET_IPSEC
   endif
 
   ifeq ($(CONFIG_NFP_NET_VF),y)

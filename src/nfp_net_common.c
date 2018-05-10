@@ -85,6 +85,7 @@
 #include "nfp_app.h"
 #include "nfp_net_ctrl.h"
 #include "nfp_net.h"
+#include "nfp_net_ipsec.h"
 #include "nfp_net_sriov.h"
 #include "nfp_port.h"
 
@@ -3985,6 +3986,8 @@ static void nfp_net_netdev_init(struct nfp_net *nn)
 	netdev->netdev_ops = &nfp_net_netdev_ops;
 	netdev->watchdog_timeo = msecs_to_jiffies(5 * 1000);
 
+	nfp_net_ipsec_init(netdev);
+
 	SWITCHDEV_SET_OPS(netdev, &nfp_port_switchdev_ops);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
@@ -3998,6 +4001,11 @@ static void nfp_net_netdev_init(struct nfp_net *nn)
 	netif_carrier_off(netdev);
 
 	nfp_net_set_ethtool_ops(netdev);
+}
+
+static void nfp_net_netdev_clean(struct nfp_net *nn)
+{
+	nfp_net_ipsec_clean(nn->dp.netdev);
 }
 
 static int nfp_net_read_caps(struct nfp_net *nn)
@@ -4098,13 +4106,17 @@ int nfp_net_init(struct nfp_net *nn)
 	err = nfp_net_reconfig(nn, NFP_NET_CFG_UPDATE_RING |
 				   NFP_NET_CFG_UPDATE_GEN);
 	if (err)
-		return err;
+		goto err_netdev_clean;
 
 	nfp_net_vecs_init(nn);
 
 	if (!nn->dp.netdev)
 		return 0;
 	return register_netdev(nn->dp.netdev);
+
+err_netdev_clean:
+	nfp_net_netdev_clean(nn);
+	return err;
 }
 
 /**
@@ -4116,5 +4128,6 @@ void nfp_net_clean(struct nfp_net *nn)
 	if (!nn->dp.netdev)
 		return;
 
+	nfp_net_netdev_clean(nn);
 	unregister_netdev(nn->dp.netdev);
 }
