@@ -242,10 +242,15 @@ struct nfp_ipsec_cfg_mssg {
 	};
 };
 
+#define NFP_IPSEC_SAIDX_RECEIVED	BIT(31)
+
 #ifdef CONFIG_NFP_NET_IPSEC
 
 int nfp_net_ipsec_init(struct net_device *netdev);
 void nfp_net_ipsec_clean(struct net_device *netdev);
+
+int nfp_net_ipsec_tx_prep(struct sk_buff *skb);
+int nfp_net_ipsec_rx(struct sk_buff *skb, unsigned int ipsec_saidx);
 
 #else
 
@@ -256,6 +261,17 @@ static inline int nfp_net_ipsec_init(struct net_device *netdev)
 
 static inline void nfp_net_ipsec_clean(struct net_device *netdev)
 {
+}
+
+static inline int nfp_net_ipsec_tx_prep(struct sk_buff *skb)
+{
+	return 0;
+}
+
+static inline int
+nfp_net_ipsec_rx(struct sk_buff *skb, unsigned int ipsec_saidx)
+{
+	return 0;
 }
 
 #endif

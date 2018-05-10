@@ -333,6 +333,7 @@ struct nfp_meta_parsed {
 	u32 mark;
 	u32 portid;
 	__wsum csum;
+	u32 ipsec_saidx;
 	u8 app_meta_desc;
 	u64 app_meta_data;
 };

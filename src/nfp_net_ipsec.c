@@ -595,8 +595,90 @@ static void nfp_net_xfrm_free_state(struct xfrm_state *x)
 
 static bool nfp_net_ipsec_offload_ok(struct sk_buff *skb, struct xfrm_state *x)
 {
-	/* XXX: Need to check against supported offloads */
+	/* XXX: test for unsupported offloads */
 	return true;
+}
+
+int nfp_net_ipsec_tx_prep(struct sk_buff *skb)
+{
+	struct xfrm_offload *xo;
+	struct xfrm_state *x;
+	unsigned char *md;
+
+	xo = xfrm_offload(skb);
+	if (!xo)
+		return 0;
+
+	/* Note that we don't error out here as we should have taken the
+	 * opportunity to do so in nfp_net_ipsec_offload_ok.
+	 */
+
+	x = xfrm_input_state(skb);
+	if (unlikely(!x || !x->xso.offload_handle))
+		return 0;
+
+	if (unlikely(skb_cow_head(skb, 12))) {
+		pr_warn_ratelimited("No space for xfrm offload\n");
+		return -ENOMEM;
+	}
+	md = skb_push(skb, 12);
+
+	put_unaligned_be32(NFP_NET_IPSEC_HANDLE_TO_SAIDX(x->xso.offload_handle),
+			   md);
+	put_unaligned_be32(xo->seq.low, md + 4);
+	put_unaligned_be32(xo->seq.hi, md + 8);
+
+	return 12;
+}
+
+int nfp_net_ipsec_rx(struct sk_buff *skb, unsigned int ipsec_saidx)
+{
+	struct nfp_net_ipsec_sa_data *sa_data;
+	struct nfp_net_ipsec_data *ipd;
+	struct xfrm_offload *xo;
+	struct xfrm_state *x;
+	int saidx;
+
+	saidx = ipsec_saidx & ~NFP_IPSEC_SAIDX_RECEIVED;
+	if (unlikely(saidx > NFP_NET_IPSEC_MAX_SA_CNT || saidx < 0)) {
+		pr_warn_ratelimited("%s: invalid SAIDX from NIC (%d)\n",
+				    skb->dev->name, saidx);
+		return -EINVAL;
+	}
+
+	ipd = nfp_ipsec_get_handle(skb->dev);
+	if (unlikely(!ipd)) {
+		pr_warn_ratelimited("%s: no IPsec device handle\n",
+				    skb->dev->name);
+		return -EINVAL;
+	}
+
+	sa_data = &ipd->sa_entries[saidx];
+	if (unlikely(!sa_data->x)) {
+		pr_warn_ratelimited("%s: unused SAIDX from NIC (%d)\n",
+				    skb->dev->name, saidx);
+		return -ENOENT;
+	}
+
+	x = sa_data->x;
+	xfrm_state_hold(x);
+
+	WARN_ON(skb->sp);
+	skb->sp = secpath_dup(skb->sp);
+	if (unlikely(!skb->sp)) {
+		pr_warn_ratelimited("%s: failed to alloc secpath for RX offload\n",
+				    skb->dev->name);
+		return -ENOMEM;
+	}
+
+	skb->sp->xvec[skb->sp->len++] = x;
+	skb->sp->olen++;
+
+	xo = xfrm_offload(skb);
+	xo->flags = CRYPTO_DONE;
+	xo->status = CRYPTO_SUCCESS;
+
+	return 0;
 }
 
 const struct xfrmdev_ops nfp_net_ipsec_xfrmdev_ops = {

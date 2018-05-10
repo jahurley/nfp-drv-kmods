@@ -847,18 +847,23 @@ static int nfp_net_prep_port_id(struct sk_buff *skb)
 
 static int nfp_net_prep_tx_meta(struct nfp_app *app, struct sk_buff *skb)
 {
-	int res, md_bytes, shift = 0;
+	int res, md_bytes, shift = NFP_NET_META_FIELD_SIZE;
 	unsigned char *data;
 	u32 meta_id = 0;
 
 	res = nfp_net_prep_port_id(skb);
 	if (unlikely(res < 0))
 		return res;
-	if (res) {
+	if (res)
 		meta_id = NFP_NET_META_PORTID;
-		shift = NFP_NET_META_FIELD_SIZE;
-	}
 	md_bytes = res;
+
+	res = nfp_net_ipsec_tx_prep(skb);
+	if (unlikely(res < 0))
+		return res;
+	if (res)
+		meta_id = (meta_id << shift) | NFP_NET_META_IPSEC;
+	md_bytes += res;
 
 	res = nfp_net_prep_app_meta(app, skb);
 	if (unlikely(res < 0))
@@ -1609,6 +1614,18 @@ nfp_net_parse_meta(struct net_device *netdev, struct nfp_meta_parsed *meta,
 			data += 4;
 			meta_len -= 4;
 			break;
+		case NFP_NET_META_IPSEC:
+			meta->ipsec_saidx = __get_unaligned_cpu32(data);
+			/* XXX: Firmware to convert saidx endianness */
+			meta->ipsec_saidx = htonl(meta->ipsec_saidx);
+
+			/* SAIDX of zero is valid, so add flag to indicate there
+			 * was a IPsec SAIDX received.
+			 */
+			meta->ipsec_saidx |= NFP_IPSEC_SAIDX_RECEIVED;
+			data += 4;
+			meta_len -= 4;
+			break;
 		case NFP_NET_META_APP:
 			nn = netdev_priv(netdev);
 			processed = nfp_app_parse_meta(nn->app, netdev, meta,
@@ -1920,6 +1937,13 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
 		skb->protocol = eth_type_trans(skb, netdev);
 
 		nfp_net_rx_csum(dp, r_vec, rxd, &meta, skb);
+
+		if (meta.ipsec_saidx) {
+			if (unlikely(nfp_net_ipsec_rx(skb, meta.ipsec_saidx))) {
+				nfp_net_rx_drop(dp, r_vec, rx_ring, NULL, skb);
+				continue;
+			}
+		}
 
 		if (rxd->rxd.flags & PCIE_DESC_RX_VLAN)
 			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
