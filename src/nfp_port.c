@@ -287,6 +287,7 @@ struct nfp_port *
 nfp_port_alloc(struct nfp_app *app, enum nfp_port_type type,
 	       struct net_device *netdev)
 {
+	struct nfp_mac_stats_port *expander_stats;
 	struct nfp_port *port;
 
 	port = kzalloc(sizeof(*port), GFP_KERNEL);
@@ -297,9 +298,21 @@ nfp_port_alloc(struct nfp_app *app, enum nfp_port_type type,
 	port->type = type;
 	port->app = app;
 
+	if (type == NFP_PORT_PHYS_PORT_EXP) {
+		expander_stats = kzalloc(sizeof(*expander_stats), GFP_KERNEL);
+		if (!expander_stats)
+			goto err_free_port;
+
+		port->expander_stats = expander_stats;
+	}
+
 	list_add_tail(&port->port_list, &app->pf->ports);
 
 	return port;
+
+err_free_port:
+	kfree(port);
+	return ERR_PTR(-ENOMEM);
 }
 
 void nfp_port_free(struct nfp_port *port)
@@ -307,6 +320,7 @@ void nfp_port_free(struct nfp_port *port)
 	if (!port)
 		return;
 	list_del(&port->port_list);
+	kfree(port->expander_stats);
 	kfree(port);
 }
 #endif
