@@ -120,6 +120,7 @@ struct nfp_dumpspec {
  * @ports:		Linked list of port structures (struct nfp_port)
  * @wq:			Workqueue for running works which need to grab @lock
  * @port_refresh_work:	Work entry for taking netdevs out
+ * @port_stats_dwork:	Delayed work entry for accumulating stats
  * @shared_bufs:	Array of shared buffer structures if FW has any SBs
  * @num_shared_bufs:	Number of elements in @shared_bufs
  * @lock:		Protects all fields which may change after probe
@@ -179,6 +180,7 @@ struct nfp_pf {
 
 	struct workqueue_struct *wq;
 	struct work_struct port_refresh_work;
+	struct delayed_work port_stats_dwork;
 
 	struct nfp_shared_buf *shared_bufs;
 	unsigned int num_shared_bufs;

@@ -648,6 +648,36 @@ void nfp_net_refresh_port_table(struct nfp_port *port)
 	queue_work(pf->wq, &pf->port_refresh_work);
 }
 
+static void nfp_net_accum_expander_stats(struct work_struct *work)
+{
+	struct delayed_work *delay = to_delayed_work(work);
+	struct nfp_port *port;
+	struct nfp_pf *pf;
+	int err;
+
+	pf = container_of(delay, struct nfp_pf, port_stats_dwork);
+
+	mutex_lock(&pf->lock);
+
+	rtnl_lock();
+	list_for_each_entry(port, &pf->ports, port_list) {
+		if (!nfp_port_is_expander(port))
+			continue;
+
+		err = nfp_mac_stats_port_accum(pf->cpp, port->eth_port,
+					       port->expander_stats);
+		if (err)
+			net_warn_ratelimited("%s: failed to accumulate stats\n",
+					     port->netdev->name);
+	}
+	rtnl_unlock();
+
+	mutex_unlock(&pf->lock);
+
+	/* Enqueue again */
+	queue_delayed_work(pf->wq, &pf->port_stats_dwork, HZ / 2);
+}
+
 int nfp_net_refresh_eth_port(struct nfp_port *port)
 {
 	struct nfp_cpp *cpp = port->app->cpp;
@@ -694,6 +724,12 @@ static int nfp_net_init_without_vnic(struct nfp_pf *pf)
 
 	mutex_unlock(&pf->lock);
 
+	/* Kick off the stats accumulation after the app has been initialized.
+	 * We only need this for devices that are operating without a vNIC, i.e.
+	 * the port expander case.
+	 */
+	queue_delayed_work(pf->wq, &pf->port_stats_dwork, 0);
+
 	return 0;
 
 err_clean_ddir:
@@ -718,6 +754,7 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
 	int err;
 
 	INIT_WORK(&pf->port_refresh_work, nfp_net_refresh_vnics);
+	INIT_DELAYED_WORK(&pf->port_stats_dwork, nfp_net_accum_expander_stats);
 
 	if (!pf->rtbl) {
 		if (!pf->fw_loaded && nfp_cppcore_pcie_unit(pf->cpp)) {
@@ -839,6 +876,8 @@ err_unmap:
 void nfp_net_pci_remove(struct nfp_pf *pf)
 {
 	struct nfp_net *nn, *next;
+
+	cancel_delayed_work_sync(&pf->port_stats_dwork);
 
 	mutex_lock(&pf->lock);
 
