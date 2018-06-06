@@ -645,6 +645,10 @@ static u64 *nfp_mac_get_expander_stats(struct net_device *netdev, u64 *data)
 	if (!__nfp_port_get_eth_port(port) || !port->expander_stats)
 		return data;
 
+	/* Opportunistically refresh the stats */
+	nfp_mac_stats_port_accum(port->app->cpp, port->eth_port,
+				 port->expander_stats);
+
 	for (i = 0; i < ARRAY_SIZE(nfp_mac_et_stats); i++) {
 		offset = nfp_mac_et_stats[i].off / sizeof(u64);
 		*data++ = port->expander_stats->raw[offset];
