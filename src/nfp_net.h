@@ -565,6 +565,7 @@ struct nfp_net_dp {
 /**
  * struct nfp_net - NFP network device structure
  * @dp:			Datapath structure
+ * @id:			vNIC id within the PF (0 for VFs)
  * @fw_ver:		Firmware version
  * @cap:                Capabilities advertised by the Firmware
  * @max_mtu:            Maximum support MTU advertised by the Firmware
@@ -609,6 +610,8 @@ struct nfp_net_dp {
  * @vnic_list:		Entry on device vNIC list
  * @pdev:		Backpointer to PCI device
  * @app:		APP handle if available
+ * @vnic_no_name:	For non-port PF vNIC make ndo_get_phys_port_name return
+ *			-EOPNOTSUPP to keep backwards compatibility (set by app)
  * @port:		Pointer to nfp_port structure if vNIC is a port
  * @ipsec_data:		store per repr IPsec handle
  * @app_priv:		APP private data for this vNIC
@@ -617,6 +620,8 @@ struct nfp_net {
 	struct nfp_net_dp dp;
 
 	struct nfp_net_fw_version fw_ver;
+
+	u32 id;
 
 	u32 cap;
 	u32 max_mtu;
@@ -680,6 +685,8 @@ struct nfp_net {
 
 	struct pci_dev *pdev;
 	struct nfp_app *app;
+
+	bool vnic_no_name;
 
 	struct nfp_port *port;
 
@@ -934,7 +941,7 @@ int nfp_net_reconfig_mbox_post(struct nfp_net *nn, u32 mbox_cmd);
 void nfp_net_debugfs_create(void);
 void nfp_net_debugfs_destroy(void);
 struct dentry *nfp_net_debugfs_device_add(struct pci_dev *pdev);
-void nfp_net_debugfs_vnic_add(struct nfp_net *nn, struct dentry *ddir, int id);
+void nfp_net_debugfs_vnic_add(struct nfp_net *nn, struct dentry *ddir);
 void nfp_net_debugfs_dir_clean(struct dentry **dir);
 #else
 static inline void nfp_net_debugfs_create(void)
@@ -951,7 +958,7 @@ static inline struct dentry *nfp_net_debugfs_device_add(struct pci_dev *pdev)
 }
 
 static inline void
-nfp_net_debugfs_vnic_add(struct nfp_net *nn, struct dentry *ddir, int id)
+nfp_net_debugfs_vnic_add(struct nfp_net *nn, struct dentry *ddir)
 {
 }
 

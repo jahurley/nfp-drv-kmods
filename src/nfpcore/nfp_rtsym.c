@@ -294,6 +294,49 @@ exit:
 }
 
 /**
+ * nfp_rtsym_write_le() - Write an unsigned scalar value to a symbol
+ * @rtbl:	NFP RTsym table
+ * @name:	Symbol name
+ * @value:	Value to write
+ *
+ * Lookup a symbol and write a value to it. Symbol can be 4 or 8 bytes in size.
+ * If 4 bytes then the lower 32-bits of 'value' are used. Value will be
+ * written as simple little-endian unsigned value.
+ *
+ * Return: 0 on success or error code.
+ */
+int nfp_rtsym_write_le(struct nfp_rtsym_table *rtbl, const char *name,
+		       u64 value)
+{
+	const struct nfp_rtsym *sym;
+	int err;
+	u32 id;
+
+	sym = nfp_rtsym_lookup(rtbl, name);
+	if (!sym)
+		return -ENOENT;
+
+	id = NFP_CPP_ISLAND_ID(sym->target, NFP_CPP_ACTION_RW, 0, sym->domain);
+
+	switch (sym->size) {
+	case 4:
+		err = nfp_cpp_writel(rtbl->cpp, id, sym->addr, value);
+		break;
+	case 8:
+		err = nfp_cpp_writeq(rtbl->cpp, id, sym->addr, value);
+		break;
+	default:
+		nfp_err(rtbl->cpp,
+			"rtsym '%s' unsupported or non-scalar size: %lld\n",
+			name, sym->size);
+		err = -EINVAL;
+		break;
+	}
+
+	return err;
+}
+
+/*
  * nfp_rtsym_writeq() - Write a simple unsigned 64bit value to a symbol at an
  *			offset
  * @rtbl:	NFP RTsym table
@@ -304,9 +347,10 @@ exit:
  * Return: 0 on success, or -ERRNO
  */
 int nfp_rtsym_writeq(struct nfp_rtsym_table *rtbl, const char *name,
-		     unsigned long long offset, u64 value)
+		    unsigned long long offset, u64 value)
 {
 	const struct nfp_rtsym *sym;
+
 	u32 id;
 
 	sym = nfp_rtsym_lookup(rtbl, name);

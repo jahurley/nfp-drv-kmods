@@ -3310,7 +3310,7 @@ static compat__stat64_ret_t nfp_net_stat64(struct net_device *netdev,
 	struct nfp_net *nn = netdev_priv(netdev);
 	int r;
 
-	for (r = 0; r < nn->dp.num_r_vecs; r++) {
+	for (r = 0; r < nn->max_r_vecs; r++) {
 		struct nfp_net_r_vector *r_vec = &nn->r_vecs[r];
 		u64 data[3];
 		unsigned int start;
@@ -3475,6 +3475,27 @@ nfp_net_features_check(struct sk_buff *skb, struct net_device *dev,
 		return features & ~(NETIF_F_CSUM_MASK | NETIF_F_GSO_MASK);
 
 	return features;
+}
+#endif
+
+#if VER_VANILLA_GE(4, 1) || VER_RHEL_GE(7, 4)
+static int
+nfp_net_get_phys_port_name(struct net_device *netdev, char *name, size_t len)
+{
+	struct nfp_net *nn = netdev_priv(netdev);
+	int n;
+
+	if (nn->port)
+		return nfp_port_get_phys_port_name(netdev, name, len);
+
+	if (nn->dp.is_vf || nn->vnic_no_name)
+		return -EOPNOTSUPP;
+
+	n = snprintf(name, len, "n%d", nn->id);
+	if (n >= len)
+		return -EINVAL;
+
+	return 0;
 }
 #endif
 
@@ -3721,7 +3742,7 @@ const struct net_device_ops nfp_net_netdev_ops = {
 	.ndo_features_check	= nfp_net_features_check,
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
-	.ndo_get_phys_port_name	= nfp_port_get_phys_port_name,
+	.ndo_get_phys_port_name	= nfp_net_get_phys_port_name,
 #endif
 #if VER_IS_VANILLA && COMPAT__HAVE_UDP_OFFLOAD
 	.ndo_udp_tunnel_add	= nfp_net_add_vxlan_port,
@@ -3742,7 +3763,7 @@ const struct net_device_ops nfp_net_netdev_ops = {
 	.extended		= {
 #if VER_RHEL_GE(7, 4)
 		.ndo_set_vf_vlan	= nfp_app_set_vf_vlan,
-		.ndo_get_phys_port_name	= nfp_port_get_phys_port_name,
+		.ndo_get_phys_port_name	= nfp_net_get_phys_port_name,
 		.ndo_udp_tunnel_add	= nfp_net_add_vxlan_port,
 		.ndo_udp_tunnel_del	= nfp_net_del_vxlan_port,
 #endif

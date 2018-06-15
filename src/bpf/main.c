@@ -334,6 +334,13 @@ nfp_bpf_parse_cap_random(struct nfp_app_bpf *bpf, void __iomem *value,
 	return 0;
 }
 
+static int
+nfp_bpf_parse_cap_qsel(struct nfp_app_bpf *bpf, void __iomem *value, u32 length)
+{
+	bpf->queue_select = true;
+	return 0;
+}
+
 static int nfp_bpf_parse_capabilities(struct nfp_app *app)
 {
 	struct nfp_cpp *cpp = app->pf->cpp;
@@ -346,7 +353,7 @@ static int nfp_bpf_parse_capabilities(struct nfp_app *app)
 		return PTR_ERR(mem) == -ENOENT ? 0 : PTR_ERR(mem);
 
 	start = mem;
-	while (mem - start + 8 < nfp_cpp_area_size(area)) {
+	while (mem - start + 8 <= nfp_cpp_area_size(area)) {
 		u8 __iomem *value;
 		u32 type, length;
 
@@ -374,6 +381,10 @@ static int nfp_bpf_parse_capabilities(struct nfp_app *app)
 			break;
 		case NFP_BPF_CAP_TYPE_RANDOM:
 			if (nfp_bpf_parse_cap_random(app->priv, value, length))
+				goto err_release_free;
+			break;
+		case NFP_BPF_CAP_TYPE_QUEUE_SELECT:
+			if (nfp_bpf_parse_cap_qsel(app->priv, value, length))
 				goto err_release_free;
 			break;
 		default:

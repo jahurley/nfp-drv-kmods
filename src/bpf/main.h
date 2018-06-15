@@ -82,10 +82,16 @@ enum static_regs {
 enum pkt_vec {
 	PKT_VEC_PKT_LEN		= 0,
 	PKT_VEC_PKT_PTR		= 2,
+	PKT_VEC_QSEL_SET	= 4,
+	PKT_VEC_QSEL_VAL	= 6,
 };
+
+#define PKT_VEL_QSEL_SET_BIT	4
 
 #define pv_len(np)	reg_lm(1, PKT_VEC_PKT_LEN)
 #define pv_ctm_ptr(np)	reg_lm(1, PKT_VEC_PKT_PTR)
+#define pv_qsel_set(np)	reg_lm(1, PKT_VEC_QSEL_SET)
+#define pv_qsel_val(np)	reg_lm(1, PKT_VEC_QSEL_VAL)
 
 #define stack_reg(np)	reg_a(STATIC_REG_STACK)
 #define stack_imm(np)	imm_b(np)
@@ -139,6 +145,7 @@ enum pkt_vec {
  * @helpers.perf_event_output:	output perf event to a ring buffer
  *
  * @pseudo_random:	FW initialized the pseudo-random machinery (CSRs)
+ * @queue_select:	BPF can set the RX queue ID in packet vector
  */
 struct nfp_app_bpf {
 	struct nfp_app *app;
@@ -181,6 +188,7 @@ struct nfp_app_bpf {
 	} helpers;
 
 	bool pseudo_random;
+	bool queue_select;
 };
 
 enum nfp_bpf_map_use {
@@ -255,6 +263,8 @@ struct nfp_bpf_reg_state {
  * @func_id: function id for call instructions
  * @arg1: arg1 for call instructions
  * @arg2: arg2 for call instructions
+ * @umin: copy of core verifier umin_value.
+ * @umax: copy of core verifier umax_value.
  * @off: index of first generated machine instruction (in nfp_prog.prog)
  * @n: eBPF instruction number
  * @flags: eBPF instruction extra optimization flags
@@ -289,6 +299,13 @@ struct nfp_insn_meta {
 			u32 func_id;
 			struct bpf_reg_state arg1;
 			struct nfp_bpf_reg_state arg2;
+		};
+		/* We are interested in range info for some operands,
+		 * for example, the shift amount.
+		 */
+		struct {
+			u64 umin;
+			u64 umax;
 		};
 	};
 	unsigned int off;
@@ -365,6 +382,25 @@ static inline bool is_mbpf_classic_store_pkt(const struct nfp_insn_meta *meta)
 static inline bool is_mbpf_xadd(const struct nfp_insn_meta *meta)
 {
 	return (meta->insn.code & ~BPF_SIZE_MASK) == (BPF_STX | BPF_XADD);
+}
+
+static inline bool is_mbpf_indir_shift(const struct nfp_insn_meta *meta)
+{
+	u8 code = meta->insn.code;
+	bool is_alu, is_shift;
+	u8 opclass, opcode;
+
+	opclass = BPF_CLASS(code);
+	is_alu = opclass == BPF_ALU64 || opclass == BPF_ALU;
+	if (!is_alu)
+		return false;
+
+	opcode = BPF_OP(code);
+	is_shift = opcode == BPF_LSH || opcode == BPF_RSH || opcode == BPF_ARSH;
+	if (!is_shift)
+		return false;
+
+	return BPF_SRC(code) == BPF_X;
 }
 
 /**
