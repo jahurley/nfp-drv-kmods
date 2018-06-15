@@ -600,7 +600,7 @@ static unsigned int nfp_mac_get_stats_count(struct net_device *netdev)
 	struct nfp_port *port;
 
 	port = nfp_port_from_netdev(netdev);
-	if (!__nfp_port_get_eth_port(port) || !port->eth_stats)
+	if (!__nfp_port_get_eth_port(port) || !nfp_port_has_mac_stats(port))
 		return 0;
 
 	return ARRAY_SIZE(nfp_mac_et_stats);
@@ -612,7 +612,7 @@ static u8 *nfp_mac_get_stats_strings(struct net_device *netdev, u8 *data)
 	unsigned int i;
 
 	port = nfp_port_from_netdev(netdev);
-	if (!__nfp_port_get_eth_port(port) || !port->eth_stats)
+	if (!__nfp_port_get_eth_port(port) || !nfp_port_has_mac_stats(port))
 		return data;
 
 	for (i = 0; i < ARRAY_SIZE(nfp_mac_et_stats); i++)
@@ -632,6 +632,23 @@ static u64 *nfp_mac_get_stats(struct net_device *netdev, u64 *data)
 
 	for (i = 0; i < ARRAY_SIZE(nfp_mac_et_stats); i++)
 		*data++ = readq(port->eth_stats + nfp_mac_et_stats[i].off);
+
+	return data;
+}
+
+static u64 *nfp_mac_get_expander_stats(struct net_device *netdev, u64 *data)
+{
+	struct nfp_port *port;
+	unsigned int i, offset;
+
+	port = nfp_port_from_netdev(netdev);
+	if (!__nfp_port_get_eth_port(port) || !port->expander_stats)
+		return data;
+
+	for (i = 0; i < ARRAY_SIZE(nfp_mac_et_stats); i++) {
+		offset = nfp_mac_et_stats[i].off / sizeof(u64);
+		*data++ = port->expander_stats->raw[offset];
+	}
 
 	return data;
 }
@@ -706,6 +723,8 @@ nfp_port_get_stats(struct net_device *netdev, struct ethtool_stats *stats,
 
 	if (nfp_port_is_vnic(port))
 		data = nfp_vnic_get_hw_stats(data, port->vnic, 0, 0);
+	else if (nfp_port_is_expander(port))
+		data = nfp_mac_get_expander_stats(netdev, data);
 	else
 		data = nfp_mac_get_stats(netdev, data);
 	data = nfp_app_port_get_stats(port, data);
