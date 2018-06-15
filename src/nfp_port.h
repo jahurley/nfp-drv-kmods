@@ -151,6 +151,16 @@ static inline bool nfp_port_is_vnic(const struct nfp_port *port)
 	return port->type == NFP_PORT_PF_PORT || port->type == NFP_PORT_VF_PORT;
 }
 
+static inline bool nfp_port_is_expander(const struct nfp_port *port)
+{
+	return port->type == NFP_PORT_PHYS_PORT_EXP;
+}
+
+static inline bool nfp_port_has_mac_stats(const struct nfp_port *port)
+{
+	return port->eth_stats || port->expander_stats;
+}
+
 int
 nfp_port_set_features(struct net_device *netdev, netdev_features_t features);
 
