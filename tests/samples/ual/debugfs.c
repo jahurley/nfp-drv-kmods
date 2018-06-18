@@ -34,6 +34,7 @@
 #include <linux/kernel.h>
 
 #include "nfp_net.h"
+#include "nfp_port.h"
 #include "main.h"
 
 static int ualt_dfs_file_get(struct dentry *dentry, int *srcu_idx)
@@ -163,6 +164,33 @@ static const struct file_operations ualt_repr_vnic_ops = {
 };
 
 static ssize_t
+ualt_repr_clr_mac_stats(struct file *file, const char __user *user_buf,
+		        size_t count, loff_t *ppos)
+{
+	struct nfp_repr *repr = file->private_data;
+	struct nfp_port *port;
+	int off;
+
+	port = nfp_port_from_netdev(repr->netdev);
+	if (!nfp_port_get_eth_port(port) || !nfp_port_has_mac_stats(port))
+		return count;
+
+	if (nfp_port_is_expander(port))
+		memset(port->expander_stats, 0, sizeof(*port->expander_stats));
+	else
+		for (off = 0; off < NFP_MAC_STATS_SIZE; off += 8)
+			writeq(0, port->eth_stats + off);
+
+	return count;
+}
+
+static const struct file_operations ualt_repr_clr_mac_stats_ops = {
+	.write = ualt_repr_clr_mac_stats,
+	.open = simple_open,
+	.llseek = default_llseek,
+};
+
+static ssize_t
 ualt_vnics_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 {
 	struct nfp_mbl_dev_ctx *dev_ctx;
@@ -237,6 +265,8 @@ int ualt_debugfs_add_repr(struct ualt_cookie *priv, struct nfp_repr *repr)
 				     &ualt_repr_vnic_ops);
 	fail |= !debugfs_create_file("tx_vnic", 0600, dir, repr,
 				     &ualt_repr_vnic_ops);
+	fail |= !debugfs_create_file("clear_mac_stats", 0600, dir, repr,
+				     &ualt_repr_clr_mac_stats_ops);
 
 	return (fail ? -ENODEV : 0);
 }
