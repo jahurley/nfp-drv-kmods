@@ -4027,6 +4027,7 @@ static void nfp_net_netdev_init(struct nfp_net *nn)
 		netdev->hw_features |= NETIF_F_HW_VLAN_CTAG_FILTER;
 		nn->dp.ctrl |= NFP_NET_CFG_CTRL_CTAG_FILTER;
 	}
+#ifdef CONFIG_NFP_NET_IPSEC
 	if (nn->tlv_caps.extended_caps & NFP_NET_CFG_CTRL_EXT_IPSEC) {
 		if (nfp_net_ipsec_init(netdev)) {
 			nn_warn(nn,
@@ -4036,6 +4037,7 @@ static void nfp_net_netdev_init(struct nfp_net *nn)
 			netdev->hw_enc_features |= NETIF_F_HW_ESP;
 		}
 	}
+#endif
 
 	netdev->features = netdev->hw_features;
 

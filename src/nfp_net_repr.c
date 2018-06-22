@@ -409,6 +409,7 @@ int nfp_repr_init(struct nfp_app *app, struct net_device *netdev,
 	if (nn->cap & NFP_NET_CFG_CTRL_TXCSUM) {
 		netdev->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
 	}
+#ifdef CONFIG_NFP_NET_IPSEC
 	if (nn->tlv_caps.extended_caps & NFP_NET_CFG_CTRL_EXT_IPSEC) {
 		if (!(pf_netdev->hw_features & NETIF_F_HW_ESP) ||
 		    nfp_net_ipsec_init(netdev)) {
@@ -419,6 +420,7 @@ int nfp_repr_init(struct nfp_app *app, struct net_device *netdev,
 			netdev->hw_enc_features |= NETIF_F_HW_ESP;
 		}
 	}
+#endif
 	netdev->features = netdev->hw_features;
 
 	err = nfp_app_repr_init(app, netdev);
