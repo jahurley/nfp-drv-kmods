@@ -1154,6 +1154,7 @@ MODULE_FIRMWARE("netronome/nic_AMDA0099-0001_2x25.nffw");
 MODULE_FIRMWARE("netronome/nic_AMDA0099-0001_1x10_1x25.nffw");
 MODULE_FIRMWARE("netronome/nic_AMDA0998-0001.nffw");
 MODULE_FIRMWARE("netronome/nic_AMDA0999-0001.nffw");
+MODULE_FIRMWARE("netronome/nic_AMDA0103-0003.nffw");
 
 MODULE_AUTHOR("Netronome Systems <oss-drivers@netronome.com>");
 MODULE_LICENSE("GPL");
