@@ -241,6 +241,35 @@ err_revert_max_mtu:
 }
 
 /**
+ * nfp_ual_select_tx_dev_for_skb() - select a transmit data vNIC for a single
+ *				skb only
+ * @skb:	packet buffer
+ * @repr:	representor pointer
+ * @pcie_unit:	requested PCIe number for data vNIC selection, e.g. 0-3
+ *
+ * Return: negative ERRNO or 0 for success
+ */
+int nfp_ual_select_tx_dev_for_skb(struct sk_buff *skb, struct nfp_repr *repr,
+				  u8 pcie_unit)
+{
+	struct nfp_mbl_dev_ctx *dev_ctx;
+	int dev_index;
+
+	dev_index = NFP_MBL_DEV_INDEX(NFP_MBL_DEV_TYPE_MASTER_PF, pcie_unit);
+
+	dev_ctx = nfp_ual_get_mbl_dev_ctx(dev_index);
+	if (!dev_ctx)
+		return -ENOENT;
+
+	skb_dst_drop(skb);
+	dst_hold((struct dst_entry *)repr->dst);
+	skb_dst_set(skb, (struct dst_entry *)repr->dst);
+	skb->dev = dev_ctx->nn->dp.netdev;
+
+	return 0;
+}
+
+/**
  * nfp_ual_get_pcie_unit_count() - return the number of PCIe units probed
  *
  * @bitmap:	if non NULL, return bitmap of probed PCIe units.

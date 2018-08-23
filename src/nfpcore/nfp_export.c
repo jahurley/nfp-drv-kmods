@@ -155,6 +155,7 @@ EXPORT_SYMBOL(nfp_ual_get_cookie);
 EXPORT_SYMBOL(nfp_ual_set_port_id);
 EXPORT_SYMBOL(nfp_ual_get_port_id);
 EXPORT_SYMBOL(nfp_ual_select_tx_dev);
+EXPORT_SYMBOL(nfp_ual_select_tx_dev_for_skb);
 EXPORT_SYMBOL(nfp_ual_ctrl_msg_alloc);
 EXPORT_SYMBOL(nfp_ual_ctrl_tx);
 EXPORT_SYMBOL(nfp_ual_get_pcie_unit_count);

@@ -209,6 +209,8 @@ void *nfp_ual_get_cookie(void);
 int nfp_ual_set_port_id(struct nfp_repr *repr, u32 port_id);
 int nfp_ual_get_port_id(struct nfp_repr *repr);
 int nfp_ual_select_tx_dev(struct nfp_repr *repr, u8 pcie_unit);
+int nfp_ual_select_tx_dev_for_skb(struct sk_buff *skb, struct nfp_repr *repr,
+				  u8 pcie_unit);
 
 struct sk_buff *nfp_ual_ctrl_msg_alloc(unsigned int size, gfp_t priority);
 bool nfp_ual_ctrl_tx(struct sk_buff *skb);
