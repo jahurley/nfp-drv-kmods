@@ -66,6 +66,7 @@ struct ualt_cookie {
 struct ualt_repr_meta {
 	u8 rx_vnic;
 	u8 tx_vnic;
+	u8 tx_override;
 };
 
 static inline struct ualt_repr_meta *ualt_get_repr_meta(struct nfp_repr *repr)

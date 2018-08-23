@@ -80,9 +80,12 @@ ualt_repr_vnic_read(struct file *file, char __user *buf, size_t size,
 	if (strcmp(file->f_path.dentry->d_name.name, "rx_vnic") == 0)
 		ret = snprintf(value_str, sizeof(value_str), "%d\n",
 			       meta->rx_vnic);
-	else
+	else if (strcmp(file->f_path.dentry->d_name.name, "tx_vnic") == 0)
 		ret = snprintf(value_str, sizeof(value_str), "%d\n",
 			       meta->tx_vnic);
+	else
+		ret = snprintf(value_str, sizeof(value_str), "%d\n",
+			       meta->tx_override);
 
 	ret = simple_read_from_buffer(buf, size, ppos, value_str, ret);
 
@@ -138,7 +141,7 @@ ualt_repr_vnic_write(struct file *file, const char __user *user_buf,
 		}
 
 		meta->rx_vnic = value;
-	} else {
+	} else if (strcmp(file->f_path.dentry->d_name.name, "tx_vnic") == 0) {
 		err = nfp_ual_select_tx_dev(repr, value);
 		if (err) {
 			rtnl_unlock();
@@ -146,6 +149,8 @@ ualt_repr_vnic_write(struct file *file, const char __user *user_buf,
 		}
 
 		meta->tx_vnic = value;
+	} else {
+		meta->tx_override = value;
 	}
 	rtnl_unlock();
 

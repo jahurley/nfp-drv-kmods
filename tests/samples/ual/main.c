@@ -194,6 +194,7 @@ static void ualt_bringup_reprs(struct nfp_repr *repr, void *cookie)
 			scratchpad = 0;
 	}
 
+	repr_meta->tx_override = 0xff; /* Indicates unused */
 	repr_meta->tx_vnic = scratchpad++;
 	repr_meta->rx_vnic = repr_meta->tx_vnic;
 
@@ -385,6 +386,23 @@ static int ualt_prep_tx_meta(void *cookie, struct sk_buff *skb)
 	return 8;
 }
 
+static int ualt_repr_xmit(void *cookie, struct sk_buff *skb,
+			  struct nfp_repr *repr)
+{
+	struct ualt_repr_meta *meta;
+	int err;
+
+	meta = ualt_get_repr_meta(repr);
+	if (!meta)
+		return -ENODEV;
+
+	if (meta->tx_override != 0xff)
+		return nfp_ual_select_tx_dev_for_skb(skb, repr,
+						     meta->tx_override);
+
+	return 0;
+}
+
 static void ualt_ctrl_msg_rx(void *cookie, struct sk_buff *skb)
 {
 	struct ualt_cmsg_heartbeat *payload;
@@ -523,6 +541,8 @@ const struct nfp_ual_ops ops = {
 	.parse_meta = ualt_parse_meta,
 	.skb_set_meta = ualt_skb_set_meta,
 	.prep_tx_meta = ualt_prep_tx_meta,
+
+	.repr_xmit = ualt_repr_xmit;
 
 	.vnic_change_mtu = ualt_vnic_change_mtu,
 
