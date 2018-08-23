@@ -228,14 +228,17 @@ static netdev_tx_t nfp_repr_xmit(struct sk_buff *skb, struct net_device *netdev)
 	unsigned int len = skb->len;
 	int ret;
 
-	skb_dst_drop(skb);
-	dst_hold((struct dst_entry *)repr->dst);
-	skb_dst_set(skb, (struct dst_entry *)repr->dst);
-	skb->dev = repr->dst->u.port_info.lower_dev;
-
 	ret = nfp_app_repr_xmit(repr->app, skb, repr);
 	if (unlikely(ret))
 		return ret;
+
+	/* Only update the destination if it hasn't been done by app yet */
+	if (likely(nfp_netdev_is_nfp_repr(skb->dev))) {
+		skb_dst_drop(skb);
+		dst_hold((struct dst_entry *)repr->dst);
+		skb_dst_set(skb, (struct dst_entry *)repr->dst);
+		skb->dev = repr->dst->u.port_info.lower_dev;
+	}
 
 	ret = dev_queue_xmit(skb);
 	nfp_repr_inc_tx_stats(netdev, len, ret);

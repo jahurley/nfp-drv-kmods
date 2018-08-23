@@ -180,6 +180,9 @@ struct nfp_ual_ops {
 			     struct nfp_meta_parsed *meta);
 	int (*prep_tx_meta)(void *cookie, struct sk_buff *skb);
 
+	int (*repr_xmit)(void *cookie, struct sk_buff *skb,
+			 struct nfp_repr *repr);
+
 	void (*ctrl_msg_rx)(void *cookie, struct sk_buff *skb);
 
 	int (*sriov_enable)(void *cookie, struct nfp_mbl_dev_ctx *ctx,

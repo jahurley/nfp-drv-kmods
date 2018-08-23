@@ -933,15 +933,24 @@ nfp_mbl_repr_xmit(struct nfp_app *app, struct sk_buff *skb,
 	struct nfp_mbl_repr *repr_priv = repr->app_priv;
 	u16 vid;
 
+	if (ctx->ual_ops && ctx->ual_ops->repr_xmit) {
+		err = ctx->ual_ops->repr_xmit(&ctx->ual_cookie, skb, repr);
+		if (err)
+			return err;
+	}
+
 	if (!skb_vlan_tag_present(skb))
 		return 0;
 
-	vid = skb_vlan_tag_get(skb);
+	/* Only update the destination if it hasn't been done by the UAL yet */
+	if (nfp_netdev_is_nfp_repr(skb->dev)) {
+		vid = skb_vlan_tag_get(skb);
 
-	skb_dst_drop(skb);
-	dst_hold((struct dst_entry *)repr_priv->vlan_dst[vid]);
-	skb_dst_set(skb, (struct dst_entry *)repr_priv->vlan_dst[vid]);
-	skb->dev = repr->dst->u.port_info.lower_dev;
+		skb_dst_drop(skb);
+		dst_hold((struct dst_entry *)repr_priv->vlan_dst[vid]);
+		skb_dst_set(skb, (struct dst_entry *)repr_priv->vlan_dst[vid]);
+		skb->dev = repr->dst->u.port_info.lower_dev;
+	}
 
 	return 0;
 }
