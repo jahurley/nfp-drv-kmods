@@ -932,6 +932,7 @@ nfp_mbl_repr_xmit(struct nfp_app *app, struct sk_buff *skb,
 {
 	struct nfp_mbl_repr *repr_priv = repr->app_priv;
 	u16 vid;
+	int err;
 
 	if (ctx->ual_ops && ctx->ual_ops->repr_xmit) {
 		err = ctx->ual_ops->repr_xmit(&ctx->ual_cookie, skb, repr);
