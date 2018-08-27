@@ -270,6 +270,8 @@ int ualt_debugfs_add_repr(struct ualt_cookie *priv, struct nfp_repr *repr)
 				     &ualt_repr_vnic_ops);
 	fail |= !debugfs_create_file("tx_vnic", 0600, dir, repr,
 				     &ualt_repr_vnic_ops);
+	fail |= !debugfs_create_file("tx_override", 0600, dir, repr,
+				     &ualt_repr_vnic_ops);
 	fail |= !debugfs_create_file("clear_mac_stats", 0600, dir, repr,
 				     &ualt_repr_clr_mac_stats_ops);
 

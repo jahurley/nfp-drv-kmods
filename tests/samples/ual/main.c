@@ -390,7 +390,6 @@ static int ualt_repr_xmit(void *cookie, struct sk_buff *skb,
 			  struct nfp_repr *repr)
 {
 	struct ualt_repr_meta *meta;
-	int err;
 
 	meta = ualt_get_repr_meta(repr);
 	if (!meta)
@@ -542,7 +541,7 @@ const struct nfp_ual_ops ops = {
 	.skb_set_meta = ualt_skb_set_meta,
 	.prep_tx_meta = ualt_prep_tx_meta,
 
-	.repr_xmit = ualt_repr_xmit;
+	.repr_xmit = ualt_repr_xmit,
 
 	.vnic_change_mtu = ualt_vnic_change_mtu,
 
