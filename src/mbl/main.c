@@ -1046,6 +1046,7 @@ const struct nfp_app_type app_mbl = {
 	.name		= "mbl",
 	.ctrl_has_meta	= true,
 	.repr_link_from_eth = true,
+	.vnic_pcie_unit_label = true,
 
 	.init		= nfp_mbl_app_init,
 	.clean		= nfp_mbl_app_clean,
