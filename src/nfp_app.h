@@ -83,6 +83,8 @@ extern const struct nfp_app_type app_mbl;
  *		    control messages which are often latency-sensitive
  * @ctrl_has_meta:  control messages have prepend of type:5/port:CTRL
  * @repr_link_from_eth:	repr link state read from eth port
+ * @vnic_pcie_unit_label:	adds the PCIe island id to the vNIC
+ *				phys_port_name attribute
  *
  * Callbacks
  * @init:	perform basic app checks and init
@@ -135,6 +137,7 @@ struct nfp_app_type {
 	u32 ctrl_cap_mask;
 	bool ctrl_has_meta;
 	bool repr_link_from_eth;
+	bool vnic_pcie_unit_label;
 
 	int (*init)(struct nfp_app *app);
 	void (*clean)(struct nfp_app *app);
@@ -382,6 +385,11 @@ static inline bool nfp_app_repr_link_from_eth(struct nfp_app *app)
 	return app->type->repr_link_from_eth;
 }
 
+static inline bool nfp_app_vnic_pcie_unit_label(struct nfp_app *app)
+{
+	return (app && app->type->vnic_pcie_unit_label);
+}
+
 static inline const char *nfp_app_extra_cap(struct nfp_app *app,
 					    struct nfp_net *nn)
 {
@@ -554,6 +562,11 @@ nfp_app_set_repr_features(struct nfp_app *app, struct net_device *netdev,
 	if (!app || !app->type->set_repr_features)
 		return 0;
 	return app->type->set_repr_features(app, netdev, features);
+}
+
+static inline int nfp_app_pcie_unit(struct nfp_app *app)
+{
+	return nfp_cppcore_pcie_unit(app->cpp);
 }
 
 struct nfp_app *nfp_app_from_netdev(struct net_device *netdev);

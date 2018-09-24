@@ -3483,7 +3483,7 @@ static int
 nfp_net_get_phys_port_name(struct net_device *netdev, char *name, size_t len)
 {
 	struct nfp_net *nn = netdev_priv(netdev);
-	int n;
+	int n, pf_id;
 
 	if (nn->port)
 		return nfp_port_get_phys_port_name(netdev, name, len);
@@ -3491,7 +3491,13 @@ nfp_net_get_phys_port_name(struct net_device *netdev, char *name, size_t len)
 	if (nn->dp.is_vf || nn->vnic_no_name)
 		return -EOPNOTSUPP;
 
-	n = snprintf(name, len, "n%d", nn->id);
+	pf_id = (nfp_app_vnic_pcie_unit_label(nn->app) ?
+		nfp_app_pcie_unit(nn->app) : 0);
+	if (pf_id)
+		n = snprintf(name, len, "n%di%d", nn->id, pf_id);
+	else
+		n = snprintf(name, len, "n%d", nn->id);
+
 	if (n >= len)
 		return -EINVAL;
 
