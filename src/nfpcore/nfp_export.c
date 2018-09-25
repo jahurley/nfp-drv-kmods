@@ -105,7 +105,7 @@ EXPORT_SYMBOL(nfp_rtsym_count);
 EXPORT_SYMBOL(nfp_rtsym_get);
 EXPORT_SYMBOL(nfp_rtsym_lookup);
 EXPORT_SYMBOL(nfp_rtsym_read_le);
-EXPORT_SYMBOL(nfp_rtsym_writeq);
+EXPORT_SYMBOL(nfp_rtsym_write_le);
 
 /* Implemented in nfp_port.c */
 

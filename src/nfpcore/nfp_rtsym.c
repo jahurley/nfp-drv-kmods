@@ -525,35 +525,6 @@ int nfp_rtsym_write_le(struct nfp_rtsym_table *rtbl, const char *name,
 	return err;
 }
 
-/*
- * nfp_rtsym_writeq() - Write a simple unsigned 64bit value to a symbol at an
- *			offset
- * @rtbl:	NFP RTsym table
- * @name:	Symbol name
- * @offset:	Offset within symbol address to write at
- * @value:	Value to write
- *
- * Return: 0 on success, or -ERRNO
- */
-int nfp_rtsym_writeq(struct nfp_rtsym_table *rtbl, const char *name,
-		    unsigned long long offset, u64 value)
-{
-	const struct nfp_rtsym *sym;
-
-	u32 id;
-
-	sym = nfp_rtsym_lookup(rtbl, name);
-	if (!sym)
-		return -ENOENT;
-
-	if (offset > sym->size)
-		return -EINVAL;
-
-	id = NFP_CPP_ISLAND_ID(sym->target, NFP_CPP_ACTION_RW, 0, sym->domain);
-
-	return nfp_cpp_writeq(rtbl->cpp, id, sym->addr + offset, value);
-}
-
 u8 __iomem *
 nfp_rtsym_map(struct nfp_rtsym_table *rtbl, const char *name, const char *id,
 	      unsigned int min_size, struct nfp_cpp_area **area)
