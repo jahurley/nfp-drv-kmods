@@ -130,11 +130,12 @@
 #define NFP_PCIE_P2C_GENERAL_TOKEN_OFFSET(bar, x) ((x) << ((bar)->bitsize - 4))
 #define NFP_PCIE_P2C_GENERAL_SIZE(bar)             (1 << ((bar)->bitsize - 4))
 
-#define NFP_PCIE_CFG_BAR_PCIETOCPPEXPANSIONBAR(bar, slot) \
-	(0x400 + ((bar) * 8 + (slot)) * 4)
-
-#define NFP_PCIE_CPP_BAR_PCIETOCPPEXPANSIONBAR(bar, slot) \
-	(((bar) * 8 + (slot)) * 4)
+/* This is the offset required to access the expansion BAR registers. There
+ * may be an additional offset required per chip model depending on how these
+ * registers are accessed.
+ */
+#define NFP_PCIE_CPP_EXPBAR_OFFSET(bar_index) \
+	((bar_index) * 4)
 
 /* The number of explicit BARs to reserve.
  * Minimum is 0, maximum is 4 on the NFP6000.
@@ -334,21 +335,45 @@ compute_bar(const struct nfp6000_pcie *nfp, const struct nfp_bar *bar,
 }
 
 static int
-nfp6000_bar_write(struct nfp6000_pcie *nfp, struct nfp_bar *bar, u32 newcfg)
+nfp_pcie_cfg_to_expbar_offset(struct nfp6000_pcie *nfp, struct nfp_bar *bar)
 {
-	int base, slot;
 	int xbar;
 
-	base = bar->index >> 3;
-	slot = bar->index & 7;
+	xbar = NFP_PCIE_CPP_EXPBAR_OFFSET(bar->index);
+
+	switch (nfp->pdev->device) {
+	case PCI_DEVICE_ID_NETRONOME_NFP3800:
+		xbar += 0xa00;
+		break;
+	case PCI_DEVICE_ID_NETRONOME_NFP4000:
+	case PCI_DEVICE_ID_NETRONOME_NFP5000:
+	case PCI_DEVICE_ID_NETRONOME_NFP6000:
+		xbar += 0x400;
+		break;
+	default:
+		dev_err(nfp->dev, "Unsupported device ID: %04hx!\n",
+			nfp->pdev->device);
+		return -EINVAL;
+	}
+
+	return xbar;
+}
+
+static int
+nfp6000_bar_write(struct nfp6000_pcie *nfp, struct nfp_bar *bar, u32 newcfg)
+{
+	int xbar;
 
 	if (nfp->iomem.csr) {
-		xbar = NFP_PCIE_CPP_BAR_PCIETOCPPEXPANSIONBAR(base, slot);
+		xbar = NFP_PCIE_CPP_EXPBAR_OFFSET(bar->index);
 		writel(newcfg, nfp->iomem.csr + xbar);
 		/* Readback to ensure BAR is flushed */
 		readl(nfp->iomem.csr + xbar);
 	} else {
-		xbar = NFP_PCIE_CFG_BAR_PCIETOCPPEXPANSIONBAR(base, slot);
+		xbar = nfp_pcie_cfg_to_expbar_offset(nfp, bar);
+		if (xbar < 0)
+			return xbar;
+
 		pci_write_config_dword(nfp->pdev, xbar, newcfg);
 	}
 
