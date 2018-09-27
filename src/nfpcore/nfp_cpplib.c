@@ -56,8 +56,12 @@
 #include "nfp6000/nfp_xpb.h"
 
 /* NFP6000 PL */
+#define NFP_PL_DEVICE_PART_NFP6000		0x6200
 #define NFP_PL_DEVICE_ID			0x00000004
 #define   NFP_PL_DEVICE_ID_MASK			GENMASK(7, 0)
+#define   NFP_PL_DEVICE_PART_MASK		GENMASK(31, 16)
+#define NFP_PL_DEVICE_MODEL_MASK		\
+	(NFP_PL_DEVICE_PART_MASK | NFP_PL_DEVICE_ID_MASK)
 
 #define NFP6000_ARM_GCSR_SOFTMODEL0		0x00400144
 
@@ -155,21 +159,28 @@ int nfp_cpp_writeq(struct nfp_cpp *cpp, u32 cpp_id,
 int nfp_cpp_model_autodetect(struct nfp_cpp *cpp, u32 *model)
 {
 	const u32 arm_id = NFP_CPP_ID(NFP_CPP_TARGET_ARM, 0, 0);
-	u32 reg;
+	u32 dev_id;
 	int err;
 
-	err = nfp_cpp_readl(cpp, arm_id, NFP6000_ARM_GCSR_SOFTMODEL0, model);
-	if (err < 0)
-		return err;
-
-	/* The PL's PluDeviceID revision code is authoratative */
-	*model &= ~0xff;
 	err = nfp_xpb_readl(cpp, NFP_XPB_DEVICE(1, 1, 16) + NFP_PL_DEVICE_ID,
-			    &reg);
+			    &dev_id);
 	if (err < 0)
 		return err;
 
-	*model |= (NFP_PL_DEVICE_ID_MASK & reg) - 0x10;
+	*model = dev_id & NFP_PL_DEVICE_MODEL_MASK;
+
+	/* Disambiguate the NFP4000/NFP5000/NFP6000 chips */
+	if (FIELD_GET(NFP_PL_DEVICE_PART_MASK, dev_id) ==
+	    NFP_PL_DEVICE_PART_NFP6000) {
+		err = nfp_cpp_readl(cpp, arm_id, NFP6000_ARM_GCSR_SOFTMODEL0,
+				    model);
+		if (err < 0)
+			return err;
+
+		/* The PL's PluDeviceID revision code is authoratative */
+		*model &= ~0xff;
+		*model |= (dev_id & NFP_PL_DEVICE_ID_MASK) - 0x10;
+	}
 
 	return 0;
 }
