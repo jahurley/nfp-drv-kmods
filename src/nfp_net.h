@@ -722,7 +722,6 @@ static inline void nn_pci_flush(struct nfp_net *nn)
  * either add to a pointer or to read the pointer value.
  */
 #define NFP_QCP_QUEUE_ADDR_SZ			0x800
-#define NFP_QCP_QUEUE_AREA_SZ			0x80000
 #define NFP_QCP_QUEUE_OFF(_x)			((_x) * NFP_QCP_QUEUE_ADDR_SZ)
 #define NFP_QCP_QUEUE_ADD_RPTR			0x0000
 #define NFP_QCP_QUEUE_ADD_WPTR			0x0004
@@ -731,8 +730,66 @@ static inline void nn_pci_flush(struct nfp_net *nn)
 #define NFP_QCP_QUEUE_STS_HI			0x000c
 #define NFP_QCP_QUEUE_STS_HI_WRITEPTR_mask	0x3ffff
 
-/* The offset of a QCP queues in the PCIe Target */
-#define NFP_PCIE_QUEUE(_q) (0x80000 + (NFP_QCP_QUEUE_ADDR_SZ * ((_q) & 0xff)))
+/* The offset of the QCP queue structure in the PCIe Target. Some chips have
+ * different offsets. Note that VFs indirectly access the QCP, hence the 0
+ * offset.
+ */
+#define NFP_PCIE_QCP_NFP6000_OFFSET		0x80000
+#define NFP_PCIE_QCP_NFP3800_OFFSET		0x400000
+#define NFP_PCIE_QCP_VF_OFFSET			0x0
+
+#define NFP_PCIE_QUEUE(_offset, _q, _mask) \
+	((_offset) + (NFP_QCP_QUEUE_ADDR_SZ * ((_q) & (_mask))))
+
+/* Wrap around the queue number to the maximum supported per hardware */
+#define NFP_PCIE_QUEUE_NFP6000_MASK		GENMASK(7, 0)
+#define NFP_PCIE_QUEUE_NFP3800_MASK		GENMASK(8, 0)
+
+static inline u32 nfp_qcp_queue_area_sz(struct pci_dev *pdev)
+{
+	u32 shift;
+
+	if (pdev->device == PCI_DEVICE_ID_NETRONOME_NFP6000_VF ||
+	    pdev->device == PCI_DEVICE_ID_NETRONOME_NFP3800_VF) {
+		/* VFs shouldn't need to access the entire QCP area, but to
+		 * ensure this case is handled reasonably, set the area size
+		 * to a single queue size. This is not entirely true though
+		 * since VFs could support multiple queues.
+		 */
+		shift = 0;
+
+	} else if (pdev->device == PCI_DEVICE_ID_NETRONOME_NFP4000 ||
+	    pdev->device == PCI_DEVICE_ID_NETRONOME_NFP5000 ||
+	    pdev->device == PCI_DEVICE_ID_NETRONOME_NFP6000) {
+		shift = hweight16(NFP_PCIE_QUEUE_NFP6000_MASK);
+
+	} else {
+		shift = hweight16(NFP_PCIE_QUEUE_NFP3800_MASK);
+	}
+
+	return NFP_QCP_QUEUE_ADDR_SZ << shift;
+}
+
+static inline u32 nfp_pci_queue(struct pci_dev *pdev, u16 queue)
+{
+	if (pdev->device == PCI_DEVICE_ID_NETRONOME_NFP6000_VF) {
+		return NFP_PCIE_QUEUE(NFP_PCIE_QCP_VF_OFFSET, queue,
+				      NFP_PCIE_QUEUE_NFP6000_MASK);
+	} else if (pdev->device == PCI_DEVICE_ID_NETRONOME_NFP3800_VF) {
+		return NFP_PCIE_QUEUE(NFP_PCIE_QCP_VF_OFFSET, queue,
+				      NFP_PCIE_QUEUE_NFP3800_MASK);
+
+	} else if (pdev->device == PCI_DEVICE_ID_NETRONOME_NFP4000 ||
+		   pdev->device == PCI_DEVICE_ID_NETRONOME_NFP5000 ||
+		   pdev->device == PCI_DEVICE_ID_NETRONOME_NFP6000) {
+		return NFP_PCIE_QUEUE(NFP_PCIE_QCP_NFP6000_OFFSET, queue,
+				      NFP_PCIE_QUEUE_NFP6000_MASK);
+
+	} else {
+		return NFP_PCIE_QUEUE(NFP_PCIE_QCP_NFP3800_OFFSET, queue,
+				      NFP_PCIE_QUEUE_NFP3800_MASK);
+	}
+}
 
 /* nfp_qcp_ptr - Read or Write Pointer of a queue */
 enum nfp_qcp_ptr {

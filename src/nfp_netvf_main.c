@@ -174,9 +174,9 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
 	}
 
 	startq = readl(ctrl_bar + NFP_NET_CFG_START_TXQ);
-	tx_bar_off = NFP_PCIE_QUEUE(startq);
+	tx_bar_off = nfp_pci_queue(pdev, startq);
 	startq = readl(ctrl_bar + NFP_NET_CFG_START_RXQ);
-	rx_bar_off = NFP_PCIE_QUEUE(startq);
+	rx_bar_off = nfp_pci_queue(pdev, startq);
 
 	/* Allocate and initialise the netdev */
 	nn = nfp_net_alloc(pdev, true, max_tx_rings, max_rx_rings);
