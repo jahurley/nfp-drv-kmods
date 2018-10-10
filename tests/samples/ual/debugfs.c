@@ -29,6 +29,53 @@ static void ualt_dfs_file_put(struct dentry *dentry, int srcu_idx)
 }
 
 static ssize_t
+ualt_repr_phys_port_read(struct file *file, char __user *buf, size_t size,
+			 loff_t *ppos)
+{
+	struct nfp_repr *repr = file->private_data;
+	struct nfp_eth_table_port *eth_port;
+	struct nfp_port *port = repr->port;
+	char value_str[50];
+	int srcu_idx, err;
+	ssize_t ret;
+
+	memset(value_str, 0, sizeof(value_str));
+
+	err = ualt_dfs_file_get(file->f_path.dentry, &srcu_idx);
+	if (err)
+		goto err_file_put;
+
+	eth_port = nfp_ual_get_eth_port_from_repr(repr);
+	if (!eth_port) {
+		err = -ENOTSUPP;
+		goto err_file_put;
+	}
+
+	ret = snprintf(value_str, sizeof(value_str),
+		       "%u %u %u.%u %u.%u %u %u.%u\n", eth_port->eth_index,
+		       port->type, eth_port->nbi, eth_port->base,
+		       eth_port->label_port, eth_port->label_subport,
+		       eth_port->channel_base, eth_port->cluster,
+		       eth_port->cluster_port);
+
+	ret = simple_read_from_buffer(buf, size, ppos, value_str, ret);
+
+	ualt_dfs_file_put(file->f_path.dentry, srcu_idx);
+
+	return ret;
+
+err_file_put:
+	ualt_dfs_file_put(file->f_path.dentry, srcu_idx);
+	return err;
+}
+
+static const struct file_operations ualt_repr_phys_port_ops = {
+	.read = ualt_repr_phys_port_read,
+	.open = simple_open,
+	.llseek = default_llseek,
+};
+
+static ssize_t
 ualt_repr_vnic_read(struct file *file, char __user *buf, size_t size,
 		    loff_t *ppos)
 {
@@ -245,6 +292,8 @@ int ualt_debugfs_add_repr(struct ualt_cookie *priv, struct nfp_repr *repr)
 				     &ualt_repr_vnic_ops);
 	fail |= !debugfs_create_file("clear_mac_stats", 0600, dir, repr,
 				     &ualt_repr_clr_mac_stats_ops);
+	fail |= !debugfs_create_file("phys_port", 0600, dir, repr,
+				     &ualt_repr_phys_port_ops);
 
 	return (fail ? -ENODEV : 0);
 }
