@@ -334,11 +334,13 @@ ualt_parse_meta(void *cookie, struct net_device *netdev,
 static void ualt_skb_set_meta(void *cookie, struct sk_buff *skb,
 			      struct nfp_meta_parsed *meta)
 {
+	struct ualt_cookie *priv = cookie;
 	struct ualt_app_meta *app_meta =
 		(struct ualt_app_meta *)&meta->app_meta_data;
 
-	pr_debug("rx-ts=0x%08x 0x%08x\n", app_meta->timestamp_lo,
-		 app_meta->timestamp_hi);
+	priv->rx_meta_data = (u64)app_meta->timestamp_hi << 32;
+	priv->rx_meta_data |= app_meta->timestamp_lo;
+	pr_debug("rx-ts=0x%016llx\n", priv->rx_meta_data);
 }
 
 static int ualt_prep_tx_meta(void *cookie, struct sk_buff *skb)
@@ -346,13 +348,16 @@ static int ualt_prep_tx_meta(void *cookie, struct sk_buff *skb)
 	struct ualt_cookie *priv = cookie;
 	unsigned char *data;
 
+	if (likely(!priv->tx_meta_enable))
+		return 0;
+
 	if (unlikely(skb_cow_head(skb, 8)))
 		return -ENOMEM;
 
 	data = skb_push(skb, 8);
-	put_unaligned_be32((u32)jiffies, data);
-	put_unaligned_be32(priv->label, data + 4);
-	pr_debug("tx-ts=0x%08x 0x%08x\n", (u32)jiffies, priv->label);
+	put_unaligned_be32((u32)(priv->tx_meta_data >> 32), data);
+	put_unaligned_be32((u32)(priv->tx_meta_data & ~0U), data + 4);
+	pr_debug("tx-ts=0x%016llx\n", priv->tx_meta_data);
 
 	return 8;
 }
@@ -540,6 +545,9 @@ static int __init nfp_ualt_module_init(void)
 		return -ENOMEM;
 
 	priv->label = 0xD000DDAD;
+	priv->tx_meta_enable = false;
+	priv->tx_meta_data = priv->label;
+	priv->rx_meta_data = -1;
 	priv->status = UALT_STATUS_UNINITIALIZED;
 
 	err = ualt_debugfs_create(priv);

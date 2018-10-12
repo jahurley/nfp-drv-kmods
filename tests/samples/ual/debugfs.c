@@ -289,6 +289,12 @@ int ualt_debugfs_create(struct ualt_cookie *priv)
 
 	fail |= !debugfs_create_file("status", 0600, priv->dir, priv,
 				     &ualt_status_ops);
+	fail |= !debugfs_create_bool("tx_meta_enable", 0600, priv->dir,
+				    &priv->tx_meta_enable);
+	fail |= !debugfs_create_x64("tx_meta_data", 0600, priv->dir,
+				    &priv->tx_meta_data);
+	fail |= !debugfs_create_x64("rx_meta_data", 0400, priv->dir,
+				    &priv->rx_meta_data);
 
 	return (fail ? -ENODEV : 0);
 }

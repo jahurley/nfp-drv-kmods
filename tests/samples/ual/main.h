@@ -27,6 +27,10 @@ struct ualt_cookie {
 	u32 label;
 	u8 pcie_map;
 
+	bool tx_meta_enable;
+	u64 tx_meta_data;
+	u64 rx_meta_data;
+
 	struct dentry *dir;
 	struct dentry *vnics_file;
 	struct dentry *repr_dir;
