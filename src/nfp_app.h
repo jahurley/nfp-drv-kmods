@@ -1,35 +1,5 @@
-/*
- * Copyright (C) 2017 Netronome Systems, Inc.
- *
- * This software is dual licensed under the GNU General License Version 2,
- * June 1991 as shown in the file COPYING in the top-level directory of this
- * source tree or the BSD 2-Clause License provided below.  You have the
- * option to license this software under the complete terms of either license.
- *
- * The BSD 2-Clause License:
- *
- *     Redistribution and use in source and binary forms, with or
- *     without modification, are permitted provided that the following
- *     conditions are met:
- *
- *      1. Redistributions of source code must retain the above
- *         copyright notice, this list of conditions and the following
- *         disclaimer.
- *
- *      2. Redistributions in binary form must reproduce the above
- *         copyright notice, this list of conditions and the following
- *         disclaimer in the documentation and/or other materials
- *         provided with the distribution.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
- * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- */
+/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
+/* Copyright (C) 2017-2018 Netronome Systems, Inc. */
 
 #ifndef _NFP_APP_H
 #define _NFP_APP_H 1
@@ -40,12 +10,14 @@
 #include <net/devlink.h>
 #endif
 
-#if VER_VANILLA_GE(4, 8) || VER_RHEL_GE(7, 5)
+#if VER_NON_RHEL_GE(4, 8) || VER_RHEL_GE(7, 5)
 #include <trace/events/devlink.h>
 #endif
 
 #include "nfpcore/nfp_cpp.h"
 #include "nfp_net_repr.h"
+
+#define NFP_APP_CTRL_MTU_MAX	U32_MAX
 
 struct bpf_prog;
 struct net_device;
@@ -90,6 +62,8 @@ extern const struct nfp_app_type app_mbl;
  * @init:	perform basic app checks and init
  * @clean:	clean app state
  * @extra_cap:	extra capabilities string
+ * @ndo_init:	vNIC and repr netdev .ndo_init
+ * @ndo_uninit:	vNIC and repr netdev .ndo_unint
  * @vnic_alloc:	allocate vNICs (assign port types, etc.)
  * @vnic_free:	free up app's vNIC state
  * @vnic_init:	vNIC netdev was registered
@@ -110,6 +84,7 @@ extern const struct nfp_app_type app_mbl;
  * @init_complete:	app initialization completed (notify only)
  * @clean_begin:	app cleaning to start now (notify only)
  * @ctrl_msg_rx:    control message handler
+ * @ctrl_msg_rx_raw:	handler for control messages from data queues
  * @needs_ctrl_vnic:	does app require ctrl vnic? (if non defined, presence of
  *			of @ctrl_msg_rx dictates this)
  * @setup_tc:	setup TC ndo
@@ -144,6 +119,9 @@ struct nfp_app_type {
 
 	const char *(*extra_cap)(struct nfp_app *app, struct nfp_net *nn);
 
+	int (*ndo_init)(struct nfp_app *app, struct net_device *netdev);
+	void (*ndo_uninit)(struct nfp_app *app, struct net_device *netdev);
+
 	int (*vnic_alloc)(struct nfp_app *app, struct nfp_net *nn,
 			  unsigned int id);
 	void (*vnic_free)(struct nfp_app *app, struct nfp_net *nn);
@@ -174,6 +152,8 @@ struct nfp_app_type {
 	void (*clean_begin)(struct nfp_app *app);
 
 	void (*ctrl_msg_rx)(struct nfp_app *app, struct sk_buff *skb);
+	void (*ctrl_msg_rx_raw)(struct nfp_app *app, const void *data,
+				unsigned int len);
 	bool (*needs_ctrl_vnic)(struct nfp_app *app);
 
 	int (*setup_tc)(struct nfp_app *app, struct net_device *netdev,
@@ -223,6 +203,7 @@ struct nfp_app_type {
  * @ctrl:	pointer to ctrl vNIC struct
  * @reprs:	array of pointers to representors
  * @type:	pointer to const application ops and info
+ * @ctrl_mtu:	MTU to set on the control vNIC (set in .init())
  * @priv:	app-specific priv data
  */
 struct nfp_app {
@@ -234,9 +215,11 @@ struct nfp_app {
 	struct nfp_reprs __rcu *reprs[NFP_REPR_TYPE_MAX + 1];
 
 	const struct nfp_app_type *type;
+	unsigned int ctrl_mtu;
 	void *priv;
 };
 
+void nfp_check_rhashtable_empty(void *ptr, void *arg);
 bool __nfp_ctrl_tx(struct nfp_net *nn, struct sk_buff *skb);
 bool nfp_ctrl_tx(struct nfp_net *nn, struct sk_buff *skb);
 void nfp_ctrl_debug_rx(struct nfp_pf *pf, struct sk_buff *skb);
@@ -266,6 +249,9 @@ static inline void nfp_app_clean_begin(struct nfp_app *app)
 	if (app->type->clean_begin)
 		app->type->clean_begin(app);
 }
+
+int nfp_app_ndo_init(struct net_device *netdev);
+void nfp_app_ndo_uninit(struct net_device *netdev);
 
 static inline int nfp_app_vnic_alloc(struct nfp_app *app, struct nfp_net *nn,
 				     unsigned int id)
@@ -380,6 +366,11 @@ static inline bool nfp_app_ctrl_has_meta(struct nfp_app *app)
 	return app->type->ctrl_has_meta;
 }
 
+static inline bool nfp_app_ctrl_uses_data_vnics(struct nfp_app *app)
+{
+	return app && app->type->ctrl_msg_rx_raw;
+}
+
 static inline bool nfp_app_repr_link_from_eth(struct nfp_app *app)
 {
 	return app->type->repr_link_from_eth;
@@ -453,6 +444,16 @@ static inline void nfp_app_ctrl_rx(struct nfp_app *app, struct sk_buff *skb)
 			    skb->data, skb->len);
 
 	app->type->ctrl_msg_rx(app, skb);
+}
+
+static inline void
+nfp_app_ctrl_rx_raw(struct nfp_app *app, const void *data, unsigned int len)
+{
+	if (!app || !app->type->ctrl_msg_rx_raw)
+		return;
+
+	trace_devlink_hwmsg(priv_to_devlink(app->pf), true, 0, data, len);
+	app->type->ctrl_msg_rx_raw(app, data, len);
 }
 
 static inline int nfp_app_eswitch_mode_get(struct nfp_app *app, u16 *mode)

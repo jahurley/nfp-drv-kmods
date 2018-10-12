@@ -1,35 +1,5 @@
-/*
- * Copyright (C) 2015-2018 Netronome Systems, Inc.
- *
- * This software is dual licensed under the GNU General License Version 2,
- * June 1991 as shown in the file COPYING in the top-level directory of this
- * source tree or the BSD 2-Clause License provided below.  You have the
- * option to license this software under the complete terms of either license.
- *
- * The BSD 2-Clause License:
- *
- *     Redistribution and use in source and binary forms, with or
- *     without modification, are permitted provided that the following
- *     conditions are met:
- *
- *      1. Redistributions of source code must retain the above
- *         copyright notice, this list of conditions and the following
- *         disclaimer.
- *
- *      2. Redistributions in binary form must reproduce the above
- *         copyright notice, this list of conditions and the following
- *         disclaimer in the documentation and/or other materials
- *         provided with the distribution.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
- * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- */
+/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
+/* Copyright (C) 2015-2018 Netronome Systems, Inc. */
 
 /*
  * nfp_net_compat.h
@@ -46,6 +16,9 @@
 
 #include <asm/barrier.h>
 #include <linux/bitops.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 18, 0)
+#include <linux/bpf.h>
+#endif
 #include <linux/ethtool.h>
 #include <linux/compiler.h>
 #include <linux/if_vlan.h>
@@ -72,11 +45,11 @@
 #include "nfp_net.h"
 
 #define COMPAT__HAVE_VXLAN_OFFLOAD \
-	(VER_VANILLA_GE(3, 12) || VER_RHEL_GE(7, 4))
+	(VER_NON_RHEL_GE(3, 12) || VER_RHEL_GE(7, 4))
 #define COMPAT__HAVE_NDO_FEATURES_CHECK \
 	(LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0))
 #define COMPAT__HAVE_UDP_OFFLOAD \
-	(VER_VANILLA_GE(4, 8) || VER_RHEL_GE(7, 4))
+	(VER_NON_RHEL_GE(4, 8) || VER_RHEL_GE(7, 4))
 #define COMPAT__HAVE_XDP \
 	(LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0))
 #define COMPAT__HAVE_XDP_ADJUST_HEAD \
@@ -85,12 +58,13 @@
 	(LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0))
 /* We only want to support switchdev with ops and attrs */
 #define COMPAT__HAVE_SWITCHDEV_ATTRS \
-	(VER_VANILLA_GE(4, 5) || VER_RHEL_GE(7, 5))
+	(VER_NON_RHEL_GE(4, 5) || VER_RHEL_GE(7, 5))
 
-#ifdef UDP_SEGMENT
-#define LINUX_RELEASE_4_18	1
+#ifdef CONFIG_NET_POLL_CONTROLLER
+#define COMPAT__NEED_NDO_POLL_CONTROLLER \
+	(LINUX_VERSION_CODE < KERNEL_VERSION(4, 20, 0))
 #else
-#define LINUX_RELEASE_4_18	0
+#define COMPAT__NEED_NDO_POLL_CONTROLLER	0
 #endif
 
 #ifndef NETIF_F_HW_VLAN_CTAG_RX
@@ -234,7 +208,7 @@ ns___vlan_hwaccel_put_tag(struct sk_buff *skb, __be16 vlan_proto,
 #define __vlan_hwaccel_put_tag ns___vlan_hwaccel_put_tag
 #endif
 
-#if VER_VANILLA_LT(3, 11) || VER_RHEL_LT(7, 0)
+#if VER_NON_RHEL_LT(3, 11) || VER_RHEL_LT(7, 0)
 enum {
 	IFLA_VF_LINK_STATE_AUTO,	/* link state of the uplink */
 	IFLA_VF_LINK_STATE_ENABLE,	/* link always up */
@@ -243,7 +217,7 @@ enum {
 };
 #endif
 
-#if VER_VANILLA_LT(3, 13) || VER_RHEL_LT(7, 1)
+#if VER_NON_RHEL_LT(3, 13) || VER_RHEL_LT(7, 1)
 static inline void u64_stats_init(struct u64_stats_sync *syncp)
 {
 #if BITS_PER_LONG == 32 && defined(CONFIG_SMP)
@@ -252,7 +226,7 @@ static inline void u64_stats_init(struct u64_stats_sync *syncp)
 }
 #endif
 
-#if VER_VANILLA_LT(3, 14)
+#if VER_NON_RHEL_LT(3, 14)
 enum compat_pkt_hash_types {
 	compat_PKT_HASH_TYPE_NONE,     /* Undefined type */
 	compat_PKT_HASH_TYPE_L2,       /* Input: src_MAC, dest_MAC */
@@ -276,7 +250,7 @@ static inline void compat_skb_set_hash(struct sk_buff *skb, __u32 hash,
 #define skb_set_hash(s, h, t)	compat_skb_set_hash(s, h, t)
 #endif
 
-#if VER_VANILLA_LT(3, 14) || VER_RHEL_LT(7, 2)
+#if VER_NON_RHEL_LT(3, 14) || VER_RHEL_LT(7, 2)
 static inline void dev_consume_skb_any(struct sk_buff *skb)
 {
 	dev_kfree_skb_any(skb);
@@ -310,7 +284,7 @@ compat_incr_checksum_unnecessary(struct sk_buff *skb, bool encap)
 #endif
 }
 
-#if VER_VANILLA_LT(3, 19) || VER_RHEL_LT(7, 2)
+#if VER_NON_RHEL_LT(3, 19) || VER_RHEL_LT(7, 2)
 static inline void netdev_rss_key_fill(void *buffer, size_t len)
 {
 	get_random_bytes(buffer, len);
@@ -332,7 +306,7 @@ static inline struct page *dev_alloc_page(void)
 }
 #endif
 
-#if VER_VANILLA_LT(3, 19) || VER_RHEL_LT(7, 2)
+#if VER_NON_RHEL_LT(3, 19) || VER_RHEL_LT(7, 2)
 static inline int skb_put_padto(struct sk_buff *skb, unsigned int len)
 {
 	unsigned int size = skb->len;
@@ -351,19 +325,19 @@ static inline int skb_put_padto(struct sk_buff *skb, unsigned int len)
 #define napi_alloc_frag(x) netdev_alloc_frag(x)
 #endif
 
-#if VER_VANILLA_LT(3, 19) || VER_RHEL_LT(7, 3)
+#if VER_NON_RHEL_LT(3, 19) || VER_RHEL_LT(7, 3)
 struct netdev_phys_item_id {
 	unsigned char id[32];
 	unsigned char id_len;
 };
 #endif
 
-#if VER_VANILLA_LT(4, 0) || VER_RHEL_LT(7, 2)
+#if VER_NON_RHEL_LT(4, 0) || VER_RHEL_LT(7, 2)
 #define skb_vlan_tag_present(skb)	vlan_tx_tag_present(skb)
 #define skb_vlan_tag_get(skb)		vlan_tx_tag_get(skb)
 #endif
 
-#if VER_VANILLA_LT(4, 1)
+#if VER_NON_RHEL_LT(4, 1)
 static inline netdev_features_t vlan_features_check(const struct sk_buff *skb,
 						    netdev_features_t features)
 {
@@ -405,14 +379,14 @@ static inline bool compat_is_gretap(struct sk_buff *skb, u8 l4_hdr)
 }
 #endif
 
-#if VER_VANILLA_LT(4, 2) || VER_RHEL_LT(7, 3)
+#if VER_NON_RHEL_LT(4, 2) || VER_RHEL_LT(7, 3)
 static inline void skb_free_frag(void *addr)
 {
 	put_page(virt_to_head_page(addr));
 }
 #endif
 
-#if VER_VANILLA_LT(4, 2) || VER_RHEL_LT(7, 5)
+#if VER_NON_RHEL_LT(4, 2) || VER_RHEL_LT(7, 5)
 enum switchdev_attr_id {
 	SWITCHDEV_ATTR_ID_UNDEFINED,
 	SWITCHDEV_ATTR_ID_PORT_PARENT_ID,
@@ -499,7 +473,7 @@ static inline void udp_tunnel_get_rx_info(struct net_device *netdev)
 }
 #endif
 
-#if VER_VANILLA_LT(4, 5) || VER_RHEL_LT(7, 3)
+#if VER_NON_RHEL_LT(4, 5) || VER_RHEL_LT(7, 3)
 static inline int skb_inner_transport_offset(const struct sk_buff *skb)
 {
 	return skb_inner_transport_header(skb) - skb->data;
@@ -549,14 +523,21 @@ static inline bool netif_is_rxfh_configured(const struct net_device *netdev)
 }
 #endif
 
-#if VER_VANILLA_LT(4, 6) || VER_RHEL_LT(7, 3)
+#if VER_NON_RHEL_LT(4, 6) || VER_RHEL_LT(7, 3)
 static inline void page_ref_inc(struct page *page)
 {
 	atomic_inc(&page->_count);
 }
 #endif
 
-#if VER_VANILLA_LT(4, 8) || VER_RHEL_LT(7, 5)
+#if VER_VANILLA_LT(4, 6) || VER_UBUNTU_LT(4, 4, 21) || VER_RHEL_LT(7, 3)
+static inline void napi_consume_skb(struct sk_buff *skb, int budget)
+{
+	dev_consume_skb_any(skb);
+}
+#endif
+
+#if VER_NON_RHEL_LT(4, 8) || VER_RHEL_LT(7, 5)
 static inline void trace_devlink_hwmsg(void *devlink,
 				       bool incoming, unsigned long type,
 				       const u8 *buf, size_t len)
@@ -571,7 +552,7 @@ static inline int nfp_net_xdp_offload(struct nfp_net *nn, struct bpf_prog *prog)
 }
 #endif
 
-#if VER_VANILLA_LT(4, 10) || VER_RHEL_LT(7, 5)
+#if VER_NON_RHEL_LT(4, 10) || VER_RHEL_LT(7, 5)
 #define is_tcf_mirred_egress_redirect is_tcf_mirred_redirect
 
 static inline int
@@ -583,7 +564,7 @@ compat__napi_complete_done(struct napi_struct *n, int work_done)
 #define napi_complete_done compat__napi_complete_done
 #endif
 
-#if VER_VANILLA_GE(4, 11) || VER_RHEL_GE(7, 5)
+#if VER_NON_RHEL_GE(4, 11) || VER_RHEL_GE(7, 5)
 typedef void compat__stat64_ret_t;
 #else
 typedef struct rtnl_link_stats64 *compat__stat64_ret_t;
@@ -611,8 +592,6 @@ static inline struct netlink_ext_ack *compat__xdp_extact(struct netdev_xdp *xdp)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
 #define compat__xdp_flags(xdp)		(xdp)->flags
 #else
-#define XDP_ATTACHED_HW			true
-
 static inline u32 compat__xdp_flags(struct netdev_xdp *xdp)
 {
 	return 0;
@@ -641,7 +620,7 @@ tcf_exts_stats_update(const struct tcf_exts *exts,
 }
 #endif
 
-#if VER_VANILLA_LT(4, 14) || VER_RHEL_LT(7, 5)
+#if VER_NON_RHEL_LT(4, 14) || VER_RHEL_LT(7, 5)
 struct tc_to_netdev;
 
 enum tc_setup_type {
@@ -698,6 +677,10 @@ static inline struct net_device *tcf_mirred_dev(const struct tc_action *action)
 #endif
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 16, 0) || !defined(CONFIG_NET_CLS)
+#define tcf_block_shared(b)	false
+#endif
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 16, 0)
 static inline void xdp_rxq_info_unreg(struct xdp_rxq_info *xdp_rxq)
 {
@@ -710,7 +693,7 @@ xdp_rxq_info_reg(struct xdp_rxq_info *xdp_rxq, struct net_device *dev, u32 q)
 }
 #endif
 
-#if COMPAT__HAS_DEVLINK && !LINUX_RELEASE_4_18
+#if COMPAT__HAS_DEVLINK && LINUX_VERSION_CODE < KERNEL_VERSION(4, 18, 0)
 enum devlink_port_flavour {
 	DEVLINK_PORT_FLAVOUR_PHYSICAL,
 	DEVLINK_PORT_FLAVOUR_CPU,
@@ -726,4 +709,114 @@ devlink_port_attrs_set(struct devlink_port *devlink_port,
 		devlink_port_split_set(devlink_port, port_number);
 }
 #endif
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
+#define tcf_block_cb_register(block, cb, ident, priv, ea)	\
+	tcf_block_cb_register(block, cb, ident, priv)
+
+#if COMPAT__HAVE_XDP
+static inline int
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
+xdp_attachment_query(struct xdp_attachment_info *info, struct netdev_xdp *bpf)
+#else
+xdp_attachment_query(struct xdp_attachment_info *info, struct netdev_bpf *bpf)
+#endif
+{
+	bpf->prog_attached = !!info->prog;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
+	if (info->flags & XDP_FLAGS_HW_MODE)
+		bpf->prog_attached = XDP_ATTACHED_HW;
+	bpf->prog_id = info->prog ? info->prog->aux->id : 0;
+#endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 16, 0)
+	bpf->prog_flags = info->prog ? info->flags : 0;
+#endif
+	return 0;
+}
+
+static inline bool xdp_attachment_flags_ok(struct xdp_attachment_info *info,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
+					   struct netdev_xdp *bpf)
+#else
+					   struct netdev_bpf *bpf)
+#endif
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
+	if (info->prog && (bpf->flags ^ info->flags) & XDP_FLAGS_MODES) {
+		NL_SET_ERR_MSG(bpf->extack,
+			       "program loaded with different flags");
+		return false;
+	}
+#endif
+	return true;
+}
+
+static inline void
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
+xdp_attachment_setup(struct xdp_attachment_info *info, struct netdev_xdp *bpf)
+#else
+xdp_attachment_setup(struct xdp_attachment_info *info, struct netdev_bpf *bpf)
+#endif
+{
+	if (info->prog)
+		bpf_prog_put(info->prog);
+	info->prog = bpf->prog;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
+	info->flags = bpf->flags;
+#endif
+}
+#endif /* COMPAT__HAVE_XDP */
+
+struct bpf_offload_dev {
+	u32 empty;
+};
+
+static inline int
+bpf_offload_dev_netdev_register(struct bpf_offload_dev *bpf_dev,
+				struct net_device *dev)
+{
+	return 0;
+}
+
+static inline void
+bpf_offload_dev_netdev_unregister(struct bpf_offload_dev *bpf_dev,
+				  struct net_device *dev)
+{
+}
+
+static inline struct bpf_offload_dev *bpf_offload_dev_create(void)
+{
+	return NULL;
+}
+
+static inline void bpf_offload_dev_destroy(struct bpf_offload_dev *bpf_dev)
+{
+}
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 18, 0)
+static inline bool
+compat_bpf_offload_dev_match(struct bpf_prog *prog, struct net_device *dev)
+{
+	struct bpf_prog_offload *offload = prog->aux->offload;
+
+	if (!offload)
+		return false;
+	if (offload->netdev != dev)
+		return false;
+	return true;
+}
+#define bpf_offload_dev_match(prog, dev) compat_bpf_offload_dev_match(prog, dev)
+#endif
+
+#define FLOW_DISSECTOR_KEY_ENC_IP	22
+#define FLOW_DISSECTOR_KEY_ENC_OPTS	23
+
+#define FLOW_DIS_TUN_OPTS_MAX 255
+
+struct flow_dissector_key_enc_opts {
+	u8 data[FLOW_DIS_TUN_OPTS_MAX];
+	u8 len;
+	__be16 dst_opt_type;
+};
+#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0) */
 #endif /* _NFP_NET_COMPAT_H_ */

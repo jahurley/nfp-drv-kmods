@@ -83,6 +83,23 @@ nfp-objs += \
 		nfp_net_debugfs.o
 endif
 
+# Ubuntu version may contain non-digit characters, like rc, in such case
+# tell the compat code not to trust it.  This should only happen on unofficial,
+# non-LTS kernels.
+UTS_UBUNTU_RELEASE_ABI := \
+	$(shell awk '/UTS_UBUNTU_RELEASE_ABI/ {print $$3; found=1} \
+		     END {if (found != 1) print 0}' \
+		$(srctree)/include/generated/utsrelease.h 2>/dev/null || echo 0)
+
+UBUNTU_BAD_VERSION := \
+	$(shell /bin/bash -c '[[ $(UTS_UBUNTU_RELEASE_ABI) -ge 0 && \
+				 $(UTS_UBUNTU_RELEASE_ABI) =~ ^(0x[0-9a-fA-F]+|[0-9]+)$$ \
+			      ]] 2>/dev/null || echo 1')
+
+ifeq ($(UBUNTU_BAD_VERSION),1)
+  ccflags-y += -DCOMPAT__UTS_UBUNTU_RELEASE_ABI_BAD
+endif
+
 RHEL_MAJOR := \
 	$(shell awk '/RHEL_MAJOR/ {print $$3; found=1} \
 		     END {if (found != 1) print 0}' \
@@ -93,7 +110,7 @@ RHEL_MINOR := \
 		     END {if (found != 1) print 0}' \
 		$(srctree)/include/generated/uapi/linux/version.h 2>/dev/null || echo 0)
 
-VER_IS_VANILLA := $(shell [ $(RHEL_MAJOR) -eq 0 ] && echo y)
+VER_IS_NON_RHEL := $(shell [ $(RHEL_MAJOR) -eq 0 ] && echo y)
 
 RHEL_GE_7_4 := \
 	$(shell [ $(RHEL_MAJOR) -gt 7 -o \
@@ -116,8 +133,8 @@ KERNEL_GE_4_14 := \
 	\( $(VERSION) -eq 4 -a $(PATCHLEVEL) -ge 14 \) ] && echo y)
 
 KERNEL_GE_4_18 := \
-	$(shell grep UDP_SEGMENT \
-	$(srctree)/include/uapi/linux/udp.h > /dev/null && echo y)
+	$(shell [ $(VERSION) -gt 4 -o \
+	\( $(VERSION) -eq 4 -a $(PATCHLEVEL) -ge 18 \) ] && echo y)
 
 ifeq ($(KERNEL_GE_4_9),y)
   nfp-objs += nfp_hwmon.o
@@ -194,7 +211,7 @@ ifneq (,$(filter y,$(CONFIG_NFP_NET_PF) $(CONFIG_NFP_NET_VF)))
 		    echo y)
 
     ifeq ($(COMPAT__HAVE_METADATA_IP_TUNNEL), y)
-      ifeq ($(VER_IS_VANILLA), y)
+      ifeq ($(VER_IS_NON_RHEL), y)
 	ccflags-y += -DCOMPAT__HAVE_METADATA_IP_TUNNEL=1
 	nfp-objs += \
 		nfp_net_repr.o

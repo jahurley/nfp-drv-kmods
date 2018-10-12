@@ -1,35 +1,5 @@
-/*
- * Copyright (C) 2015-2017 Netronome Systems, Inc.
- *
- * This software is dual licensed under the GNU General License Version 2,
- * June 1991 as shown in the file COPYING in the top-level directory of this
- * source tree or the BSD 2-Clause License provided below.  You have the
- * option to license this software under the complete terms of either license.
- *
- * The BSD 2-Clause License:
- *
- *     Redistribution and use in source and binary forms, with or
- *     without modification, are permitted provided that the following
- *     conditions are met:
- *
- *      1. Redistributions of source code must retain the above
- *         copyright notice, this list of conditions and the following
- *         disclaimer.
- *
- *      2. Redistributions in binary form must reproduce the above
- *         copyright notice, this list of conditions and the following
- *         disclaimer in the documentation and/or other materials
- *         provided with the distribution.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
- * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- */
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/* Copyright (C) 2015-2018 Netronome Systems, Inc. */
 
 /*
  * nfp_cppcore.c
@@ -88,6 +58,7 @@ struct nfp_cpp_resource {
  * @serial:		chip serial number
  * @imb_cat_table:	CPP Mapping Table
  * @island_mask:	present island mask
+ * @mu_locality_lsb:	MU access type bit offset
  * @feature:		array of child platform devices
  *
  * Following fields can be used only in probe() or with rtnl held:
@@ -126,6 +97,7 @@ struct nfp_cpp {
 
 	u32 imb_cat_table[16];
 	u64 island_mask;
+	unsigned int mu_locality_lsb;
 
 	struct mutex area_cache_mutex;
 	struct list_head area_cache_list;
@@ -439,6 +411,34 @@ void *nfp_nbi_cache(struct nfp_cpp *cpp)
 void nfp_nbi_cache_set(struct nfp_cpp *cpp, void *val)
 {
 	cpp->nbi = val;
+}
+
+#define NFP_IMB_TGTADDRESSMODECFG_MODE_of(_x)		(((_x) >> 13) & 0x7)
+#define NFP_IMB_TGTADDRESSMODECFG_ADDRMODE		BIT(12)
+#define   NFP_IMB_TGTADDRESSMODECFG_ADDRMODE_32_BIT	0
+#define   NFP_IMB_TGTADDRESSMODECFG_ADDRMODE_40_BIT	BIT(12)
+
+static int nfp_cpp_set_mu_locality_lsb(struct nfp_cpp *cpp)
+{
+	unsigned int mode, addr40;
+	u32 imbcppat;
+	int res;
+
+	imbcppat = cpp->imb_cat_table[NFP_CPP_TARGET_MU];
+	mode = NFP_IMB_TGTADDRESSMODECFG_MODE_of(imbcppat);
+	addr40 = !!(imbcppat & NFP_IMB_TGTADDRESSMODECFG_ADDRMODE);
+
+	res = nfp_cppat_mu_locality_lsb(mode, addr40);
+	if (res < 0)
+		return res;
+	cpp->mu_locality_lsb = res;
+
+	return 0;
+}
+
+unsigned int nfp_cpp_mu_locality_lsb(struct nfp_cpp *cpp)
+{
+	return cpp->mu_locality_lsb;
 }
 
 /**
@@ -1465,7 +1465,7 @@ nfp_cpp_from_operations(const struct nfp_cpp_operations *ops,
 {
 	const u32 arm = NFP_CPP_ID(NFP_CPP_TARGET_ARM, NFP_CPP_ACTION_RW, 0);
 	struct nfp_cpp *cpp;
-	int id, err;
+	int id, ifc, err;
 	u32 mask[2];
 	u32 xpbaddr;
 	size_t tgt;
@@ -1485,9 +1485,19 @@ nfp_cpp_from_operations(const struct nfp_cpp_operations *ops,
 	cpp->id = id;
 	cpp->op = ops;
 	cpp->priv = priv;
-	cpp->interface = ops->get_interface(parent);
-	if (ops->read_serial)
-		ops->read_serial(parent, cpp->serial);
+
+	ifc = ops->get_interface(parent);
+	if (ifc < 0) {
+		err = ifc;
+		goto err_free_cpp;
+	}
+	cpp->interface = ifc;
+	if (ops->read_serial) {
+		err = ops->read_serial(parent, cpp->serial);
+		if (err)
+			goto err_free_cpp;
+	}
+
 	kref_init(&cpp->kref);
 	rwlock_init(&cpp->resource_lock);
 	init_waitqueue_head(&cpp->waitq);
@@ -1501,7 +1511,7 @@ nfp_cpp_from_operations(const struct nfp_cpp_operations *ops,
 	err = device_register(&cpp->dev);
 	if (err < 0) {
 		put_device(&cpp->dev);
-		goto err_dev;
+		goto err_free_cpp;
 	}
 
 	dev_set_drvdata(&cpp->dev, cpp);
@@ -1547,6 +1557,12 @@ nfp_cpp_from_operations(const struct nfp_cpp_operations *ops,
 
 	cpp->island_mask = (u64)mask[1] << 32 | mask[0];
 
+	err = nfp_cpp_set_mu_locality_lsb(cpp);
+	if (err < 0) {
+		dev_err(parent,	"Can't calculate MU locality bit offset\n");
+		goto err_out;
+	}
+
 	write_lock(&nfp_cpp_list_lock);
 	list_add_tail(&cpp->list, &nfp_cpp_list);
 	write_unlock(&nfp_cpp_list_lock);
@@ -1560,7 +1576,7 @@ err_out:
 	device_remove_file(&cpp->dev, &dev_attr_area);
 err_attr:
 	device_unregister(&cpp->dev);
-err_dev:
+err_free_cpp:
 	kfree(cpp);
 err_malloc:
 	nfp_cpp_id_release(id);

@@ -1,35 +1,5 @@
-/*
- * Copyright (C) 2015-2017 Netronome Systems, Inc.
- *
- * This software is dual licensed under the GNU General License Version 2,
- * June 1991 as shown in the file COPYING in the top-level directory of this
- * source tree or the BSD 2-Clause License provided below.  You have the
- * option to license this software under the complete terms of either license.
- *
- * The BSD 2-Clause License:
- *
- *     Redistribution and use in source and binary forms, with or
- *     without modification, are permitted provided that the following
- *     conditions are met:
- *
- *      1. Redistributions of source code must retain the above
- *         copyright notice, this list of conditions and the following
- *         disclaimer.
- *
- *      2. Redistributions in binary form must reproduce the above
- *         copyright notice, this list of conditions and the following
- *         disclaimer in the documentation and/or other materials
- *         provided with the distribution.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
- * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- */
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/* Copyright (C) 2015-2018 Netronome Systems, Inc. */
 
 /*
  * nfp_nbi.c
@@ -349,8 +319,6 @@ static int nfp_nbi_tx_flush_flags(struct nfp_nbi_dev *nbi, u32 flags)
 		.tv_sec = 0,
 	};
 	struct timespec ts;
-	u64 cpp_addr;
-	u32 cpp_id;
 	u32 tmp;
 	int err;
 
@@ -361,17 +329,13 @@ static int nfp_nbi_tx_flush_flags(struct nfp_nbi_dev *nbi, u32 flags)
 		return 0;
 	sym = &priv->tx_flush_flags.sym;
 
-	cpp_id = NFP_CPP_ISLAND_ID(sym->target, NFP_CPP_ACTION_RW,
-				   0, sym->domain);
-	cpp_addr = sym->addr + 4;
-
 	/* Update the flags */
-	err = nfp_cpp_writel(nbi->cpp, cpp_id, cpp_addr, flags);
+	err = nfp_rtsym_writel(nbi->cpp, sym, 4, flags);
 	if (err < 0)
 		return err;
 
 	/* Readback to flush the write */
-	err = nfp_cpp_readl(nbi->cpp, cpp_id, cpp_addr, &tmp);
+	err = nfp_rtsym_readl(nbi->cpp, sym, 4, &tmp);
 	if (err < 0)
 		return err;
 
@@ -380,7 +344,7 @@ static int nfp_nbi_tx_flush_flags(struct nfp_nbi_dev *nbi, u32 flags)
 	timeout = timespec_add(ts, timeout);
 
 	do {
-		err = nfp_cpp_readl(nbi->cpp, cpp_id, cpp_addr, &tmp);
+		err = nfp_rtsym_readl(nbi->cpp, sym, 4, &tmp);
 		if (err < 0)
 			return err;
 

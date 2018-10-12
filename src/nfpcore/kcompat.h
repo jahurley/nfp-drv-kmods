@@ -1,35 +1,5 @@
-/*
- * Copyright (C) 2015-2017 Netronome Systems, Inc.
- *
- * This software is dual licensed under the GNU General License Version 2,
- * June 1991 as shown in the file COPYING in the top-level directory of this
- * source tree or the BSD 2-Clause License provided below.  You have the
- * option to license this software under the complete terms of either license.
- *
- * The BSD 2-Clause License:
- *
- *     Redistribution and use in source and binary forms, with or
- *     without modification, are permitted provided that the following
- *     conditions are met:
- *
- *      1. Redistributions of source code must retain the above
- *         copyright notice, this list of conditions and the following
- *         disclaimer.
- *
- *      2. Redistributions in binary form must reproduce the above
- *         copyright notice, this list of conditions and the following
- *         disclaimer in the documentation and/or other materials
- *         provided with the distribution.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
- * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- */
+/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
+/* Copyright (C) 2015-2018 Netronome Systems, Inc. */
 
 /*
  * kcompat.h
@@ -38,7 +8,15 @@
 #ifndef __KERNEL__NFP_COMPAT_H__
 #define __KERNEL__NFP_COMPAT_H__
 
+#include <generated/utsrelease.h>
 #include <linux/version.h>
+
+/* Redefine LINUX_VERSION_CODE for *-next kernels */
+#include <linux/if_tun.h>
+#ifdef TUN_MSG_UBUF
+#undef LINUX_VERSION_CODE
+#define LINUX_VERSION_CODE KERNEL_VERSION(4, 20, 0)
+#endif
 
 /* RHEL has a tendency to heavily patch their kernels.  Sometimes it
  * is necessary to check for specific RHEL releases and not just for
@@ -52,19 +30,38 @@
 #define RHEL_RELEASE_CODE 0
 #endif
 
-#define VER_VANILLA_LT(x, y)						\
-	(!RHEL_RELEASE_CODE && LINUX_VERSION_CODE < KERNEL_VERSION(x, y, 0))
-#define VER_VANILLA_GE(x, y)						\
-	(!RHEL_RELEASE_CODE && LINUX_VERSION_CODE >= KERNEL_VERSION(x, y, 0))
+#ifdef COMPAT__UTS_UBUNTU_RELEASE_ABI_BAD
+#undef UTS_UBUNTU_RELEASE_ABI
+#endif
+
+#ifndef UTS_UBUNTU_RELEASE_ABI
+#define UTS_UBUNTU_RELEASE_ABI 0
+#endif
+
+#define VER_IS_VANILLA	(!RHEL_RELEASE_CODE && !UTS_UBUNTU_RELEASE_ABI)
+
+#define VER_KERN_LT(x, y)	(LINUX_VERSION_CODE <  KERNEL_VERSION(x, y, 0))
+#define VER_KERN_GE(x, y)	(LINUX_VERSION_CODE >= KERNEL_VERSION(x, y, 0))
+#define VER_KERN_EQ(x, y)	(VER_KERN_GE(x, y) && VER_KERN_LT(x, y + 1))
+
+#define VER_VANILLA_LT(x, y)	(VER_IS_VANILLA && VER_KERN_LT(x, y))
+
+#define VER_UBUNTU_LT(x, y, z)						\
+	(UTS_UBUNTU_RELEASE_ABI &&					\
+	 ((VER_KERN_EQ(x, y) && UTS_UBUNTU_RELEASE_ABI < (z)) ||	\
+	  VER_KERN_LT(x, y)))
+
+#define VER_NON_RHEL_LT(x, y)	(!RHEL_RELEASE_CODE && VER_KERN_LT(x, y))
+#define VER_NON_RHEL_GE(x, y)	(!RHEL_RELEASE_CODE && VER_KERN_GE(x, y))
 #define VER_RHEL_LT(x, y)						\
 	(RHEL_RELEASE_CODE && RHEL_RELEASE_CODE < RHEL_RELEASE_VERSION(x, y))
 #define VER_RHEL_GE(x, y)						\
 	(RHEL_RELEASE_CODE && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(x, y))
-#define VER_IS_VANILLA	!RHEL_RELEASE_CODE
+#define VER_IS_NON_RHEL	!RHEL_RELEASE_CODE
 
 #define COMPAT__USE_DMA_SKIP_SYNC	(LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0))
-#define COMPAT__HAS_DEVLINK	(VER_VANILLA_GE(4, 6) || VER_RHEL_GE(7, 4))
-#define COMPAT__HAS_DEVLINK_SB	(VER_VANILLA_GE(4, 7) || VER_RHEL_GE(7, 4))
+#define COMPAT__HAS_DEVLINK	(VER_NON_RHEL_GE(4, 6) || VER_RHEL_GE(7, 4))
+#define COMPAT__HAS_DEVLINK_SB	(VER_NON_RHEL_GE(4, 7) || VER_RHEL_GE(7, 4))
 
 #define COMPAT__CAN_HAVE_MULTIPLE_MOD_TABLES \
 	(LINUX_VERSION_CODE >= KERNEL_VERSION(3, 15, 0))
@@ -76,10 +73,11 @@
 #include <linux/pci.h>
 #include <linux/err.h>
 #include <linux/etherdevice.h>
-#if VER_VANILLA_GE(4, 9) || VER_RHEL_GE(7, 5)
+#if VER_NON_RHEL_GE(4, 9) || VER_RHEL_GE(7, 5)
 #include <linux/bitfield.h>
 #endif
 #include <linux/random.h>
+#include <linux/vmalloc.h>
 
 #ifndef PCI_VENDOR_ID_NETRONOME
 #define PCI_VENDOR_ID_NETRONOME		0x19ee
@@ -101,6 +99,10 @@
 #endif
 #ifndef PCI_DEVICE_ID_NETRONOME_NFP6000_VF
 #define PCI_DEVICE_ID_NETRONOME_NFP6000_VF	0x6003
+#endif
+
+#ifndef U32_MAX
+#define U32_MAX			((u32)~0U)
 #endif
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0))
@@ -223,7 +225,7 @@ static inline int compat_kstrtoul(const char *str, int base, unsigned long *res)
 #endif
 #endif /* < KERNEL_VERSION(3, 0, 0) */
 
-#if VER_VANILLA_LT(3, 12) || VER_RHEL_LT(7, 1)
+#if VER_NON_RHEL_LT(3, 12) || VER_RHEL_LT(7, 1)
 static inline int PTR_ERR_OR_ZERO(const void *ptr)
 {
 	if (IS_ERR(ptr))
@@ -557,6 +559,16 @@ static inline int pci_vfs_assigned(struct pci_dev *pdev)
 }
 #endif
 
+#if VER_VANILLA_LT(3, 15) || VER_UBUNTU_LT(3, 13, 0) || VER_RHEL_LT(7, 1)
+static inline void kvfree(void *ptr)
+{
+	if (is_vmalloc_addr(ptr))
+		vfree(ptr);
+	else
+		kfree(ptr);
+}
+#endif
+
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
 static inline void compat_ether_addr_copy(u8 *dst, const u8 *src)
 {
@@ -681,7 +693,7 @@ static inline void devlink_free(struct devlink *p)
 }
 #endif
 
-#if VER_VANILLA_LT(4, 7) || VER_RHEL_LT(7, 4)
+#if VER_NON_RHEL_LT(4, 7) || VER_RHEL_LT(7, 4)
 static inline void
 netif_trans_update(struct net_device *netdev)
 {
@@ -689,7 +701,7 @@ netif_trans_update(struct net_device *netdev)
 }
 #endif
 
-#if VER_VANILLA_LT(4, 8) || VER_RHEL_LT(7, 4)
+#if VER_NON_RHEL_LT(4, 8) || VER_RHEL_LT(7, 4)
 enum devlink_eswitch_mode {
 	DEVLINK_ESWITCH_MODE_LEGACY,
 	DEVLINK_ESWITCH_MODE_SWITCHDEV,
@@ -710,7 +722,7 @@ compat_debugfs_real_fops(const struct file *file)
 #endif /* >= 4.8 */
 #endif
 
-#if VER_VANILLA_LT(4, 9) || VER_RHEL_LT(7, 5)
+#if VER_NON_RHEL_LT(4, 9) || VER_RHEL_LT(7, 5)
 #define _c1(x)  ((x) & 1)
 #define _c2(x)  ((((x)& 0x0003) &&  !_c1(x)) * ( _c1((x) >>  1) +  1) +  _c1(x))
 #define _c4(x)  ((((x)& 0x000f) &&  !_c2(x)) * ( _c2((x) >>  2) +  2) +  _c2(x))
@@ -786,4 +798,81 @@ static inline void pcie_print_link_status(struct pci_dev *dev)
 }
 #endif
 
+#ifndef check_mul_overflow
+#define array_size(a, b)	((a) * (b))
+#endif
+
+static inline void compat_pci_sriov_reset_totalvfs(struct pci_dev *dev)
+{
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 18, 0)
+	/* On kernels older than 4.18 setting the limit to 0 meant we have no
+	 * limit at all.  Now the core resets this value after driver remove,
+	 * and 0 is a legitimate limit value.
+	 */
+	pci_sriov_set_totalvfs(dev, 0);
+#endif
+}
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 18, 0)
+static inline void *kvcalloc(size_t n, size_t size, gfp_t flags)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+	return kvmalloc_array(n, size, flags | __GFP_ZERO);
+#else
+	return kcalloc(n, size, flags);
+#endif
+}
+#endif
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
+struct reciprocal_value_adv {
+	u32 m;
+	u8 sh, exp;
+	bool is_wide_m;
+};
+
+static inline struct reciprocal_value_adv reciprocal_value_adv(u32 d, u8 prec)
+{
+	struct reciprocal_value_adv R;
+	u32 l, post_shift;
+	u64 mhigh, mlow;
+
+	/* ceil(log2(d)) */
+	l = fls(d - 1);
+	/* NOTE: mlow/mhigh could overflow u64 when l == 32. This case needs to
+	 * be handled before calling "reciprocal_value_adv", please see the
+	 * comment at include/linux/reciprocal_div.h.
+	 */
+	WARN(l == 32,
+	     "ceil(log2(0x%08x)) == 32, %s doesn't support such divisor",
+	     d, __func__);
+	post_shift = l;
+	mlow = 1ULL << (32 + l);
+	do_div(mlow, d);
+	mhigh = (1ULL << (32 + l)) + (1ULL << (32 + l - prec));
+	do_div(mhigh, d);
+
+	for (; post_shift > 0; post_shift--) {
+		u64 lo = mlow >> 1, hi = mhigh >> 1;
+
+		if (lo >= hi)
+			break;
+
+		mlow = lo;
+		mhigh = hi;
+	}
+
+	R.m = (u32)mhigh;
+	R.sh = post_shift;
+	R.exp = l;
+	R.is_wide_m = mhigh > U32_MAX;
+
+	return R;
+}
+
+struct xdp_attachment_info {
+	struct bpf_prog *prog;
+	u32 flags;
+};
+#endif
 #endif /* __KERNEL__NFP_COMPAT_H__ */

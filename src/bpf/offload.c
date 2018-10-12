@@ -1,35 +1,5 @@
-/*
- * Copyright (C) 2016-2018 Netronome Systems, Inc.
- *
- * This software is dual licensed under the GNU General License Version 2,
- * June 1991 as shown in the file COPYING in the top-level directory of this
- * source tree or the BSD 2-Clause License provided below.  You have the
- * option to license this software under the complete terms of either license.
- *
- * The BSD 2-Clause License:
- *
- *     Redistribution and use in source and binary forms, with or
- *     without modification, are permitted provided that the following
- *     conditions are met:
- *
- *      1. Redistributions of source code must retain the above
- *         copyright notice, this list of conditions and the following
- *         disclaimer.
- *
- *      2. Redistributions in binary form must reproduce the above
- *         copyright notice, this list of conditions and the following
- *         disclaimer in the documentation and/or other materials
- *         provided with the distribution.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
- * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- */
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/* Copyright (C) 2016-2018 Netronome Systems, Inc. */
 
 /*
  * nfp_net_offload.c
@@ -68,7 +38,7 @@ nfp_map_ptr_record(struct nfp_app_bpf *bpf, struct nfp_prog *nfp_prog,
 	ASSERT_RTNL();
 
 	/* Reuse path - other offloaded program is already tracking this map. */
-	record = rhashtable_lookup_fast(&bpf->maps_neutral, &map,
+	record = rhashtable_lookup_fast(&bpf->maps_neutral, &map->id,
 					nfp_bpf_maps_neutral_params);
 	if (record) {
 		nfp_prog->map_records[nfp_prog->map_records_cnt++] = record;
@@ -90,6 +60,7 @@ nfp_map_ptr_record(struct nfp_app_bpf *bpf, struct nfp_prog *nfp_prog,
 	}
 
 	record->ptr = map;
+	record->map_id = map->id;
 	record->count = 1;
 
 	err = rhashtable_insert_fast(&bpf->maps_neutral, &record->l,
@@ -191,8 +162,10 @@ nfp_prog_prepare(struct nfp_prog *nfp_prog, const struct bpf_insn *prog,
 
 		meta->insn = prog[i];
 		meta->n = i;
-		if (is_mbpf_indir_shift(meta))
-			meta->umin = U64_MAX;
+		if (is_mbpf_alu(meta)) {
+			meta->umin_src = U64_MAX;
+			meta->umin_dst = U64_MAX;
+		}
 
 		list_add_tail(&meta->l, &nfp_prog->insns);
 	}
@@ -205,6 +178,8 @@ nfp_prog_prepare(struct nfp_prog *nfp_prog, const struct bpf_insn *prog,
 static void nfp_prog_free(struct nfp_prog *nfp_prog)
 {
 	struct nfp_insn_meta *meta, *tmp;
+
+	kfree(nfp_prog->subprog);
 
 	list_for_each_entry_safe(meta, tmp, &nfp_prog->insns, l) {
 		list_del(&meta->l);
@@ -248,17 +223,20 @@ err_free:
 static int nfp_bpf_translate(struct nfp_net *nn, struct bpf_prog *prog)
 {
 	struct nfp_prog *nfp_prog = prog->aux->offload->dev_priv;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 20, 0)
 	unsigned int stack_size;
+#endif
 	unsigned int max_instr;
 	int err;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 20, 0)
 	stack_size = nn_readb(nn, NFP_NET_CFG_BPF_STACK_SZ) * 64;
 	if (prog->aux->stack_depth > stack_size) {
 		nn_info(nn, "stack too large: program %dB > FW stack %dB\n",
 			prog->aux->stack_depth, stack_size);
 		return -EOPNOTSUPP;
 	}
-	nfp_prog->stack_depth = round_up(prog->aux->stack_depth, 4);
+#endif
 
 	max_instr = nn_readw(nn, NFP_NET_CFG_BPF_MAX_LEN);
 	nfp_prog->__prog_alloc_len = max_instr * sizeof(u64);
@@ -378,11 +356,23 @@ nfp_bpf_map_alloc(struct nfp_app_bpf *bpf, struct bpf_offloaded_map *offmap)
 			bpf->maps.max_elems - bpf->map_elems_in_use);
 		return -ENOMEM;
 	}
-	if (offmap->map.key_size > bpf->maps.max_key_sz ||
-	    offmap->map.value_size > bpf->maps.max_val_sz ||
-	    round_up(offmap->map.key_size, 8) +
+
+	if (round_up(offmap->map.key_size, 8) +
 	    round_up(offmap->map.value_size, 8) > bpf->maps.max_elem_sz) {
-		pr_info("elements don't fit in device constraints\n");
+		pr_info("map elements too large: %u, FW max element size (key+value): %u\n",
+			round_up(offmap->map.key_size, 8) +
+			round_up(offmap->map.value_size, 8),
+			bpf->maps.max_elem_sz);
+		return -ENOMEM;
+	}
+	if (offmap->map.key_size > bpf->maps.max_key_sz) {
+		pr_info("map key size %u, FW max is %u\n",
+			offmap->map.key_size, bpf->maps.max_key_sz);
+		return -ENOMEM;
+	}
+	if (offmap->map.value_size > bpf->maps.max_val_sz) {
+		pr_info("map value size %u, FW max is %u\n",
+			offmap->map.value_size, bpf->maps.max_val_sz);
 		return -ENOMEM;
 	}
 
@@ -452,43 +442,43 @@ nfp_bpf_perf_event_copy(void *dst, const void *src,
 	return 0;
 }
 
-int nfp_bpf_event_output(struct nfp_app_bpf *bpf, struct sk_buff *skb)
+int nfp_bpf_event_output(struct nfp_app_bpf *bpf, const void *data,
+			 unsigned int len)
 {
-	struct cmsg_bpf_event *cbe = (void *)skb->data;
-	u32 pkt_size, data_size;
-	struct bpf_map *map;
+	struct cmsg_bpf_event *cbe = (void *)data;
+	struct nfp_bpf_neutral_map *record;
+	u32 pkt_size, data_size, map_id;
+	u64 map_id_full;
 
-	if (skb->len < sizeof(struct cmsg_bpf_event))
-		goto err_drop;
+	if (len < sizeof(struct cmsg_bpf_event))
+		return -EINVAL;
 
 	pkt_size = be32_to_cpu(cbe->pkt_size);
 	data_size = be32_to_cpu(cbe->data_size);
-	map = (void *)(unsigned long)be64_to_cpu(cbe->map_ptr);
+	map_id_full = be64_to_cpu(cbe->map_ptr);
+	map_id = map_id_full;
 
-	if (skb->len < sizeof(struct cmsg_bpf_event) + pkt_size + data_size)
-		goto err_drop;
+	if (len < sizeof(struct cmsg_bpf_event) + pkt_size + data_size)
+		return -EINVAL;
 	if (cbe->hdr.ver != CMSG_MAP_ABI_VERSION)
-		goto err_drop;
+		return -EINVAL;
 
 	rcu_read_lock();
-	if (!rhashtable_lookup_fast(&bpf->maps_neutral, &map,
-				    nfp_bpf_maps_neutral_params)) {
+	record = rhashtable_lookup_fast(&bpf->maps_neutral, &map_id,
+					nfp_bpf_maps_neutral_params);
+	if (!record || map_id_full > U32_MAX) {
 		rcu_read_unlock();
-		pr_warn("perf event: dest map pointer %px not recognized, dropping event\n",
-			map);
-		goto err_drop;
+		cmsg_warn(bpf, "perf event: map id %lld (0x%llx) not recognized, dropping event\n",
+			  map_id_full, map_id_full);
+		return -EINVAL;
 	}
 
-	bpf_event_output(map, be32_to_cpu(cbe->cpu_id),
+	bpf_event_output(record->ptr, be32_to_cpu(cbe->cpu_id),
 			 &cbe->data[round_up(pkt_size, 4)], data_size,
 			 cbe->data, pkt_size, nfp_bpf_perf_event_copy);
 	rcu_read_unlock();
 
-	dev_consume_skb_any(skb);
 	return 0;
-err_drop:
-	dev_kfree_skb_any(skb);
-	return -EINVAL;
 }
 
 static int
@@ -565,14 +555,8 @@ int nfp_net_bpf_offload(struct nfp_net *nn, struct bpf_prog *prog,
 {
 	int err;
 
-	if (prog) {
-		struct bpf_prog_offload *offload = prog->aux->offload;
-
-		if (!offload)
-			return -EINVAL;
-		if (offload->netdev != nn->dp.netdev)
-			return -EINVAL;
-	}
+	if (prog && !bpf_offload_dev_match(prog, nn->dp.netdev))
+		return -EINVAL;
 
 	if (prog && old_prog) {
 		u8 cap;

@@ -1,35 +1,6 @@
-#!/usr/bin/python
-
+#!/usr/bin/env python3
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 # Copyright (C) 2017 Netronome Systems, Inc.
-#
-# This software is dual licensed under the GNU General License Version 2,
-# June 1991 as shown in the file COPYING in the top-level directory of this
-# source tree or the BSD 2-Clause License provided below.  You have the
-# option to license this software under the complete terms of either license.
-#
-# The BSD 2-Clause License:
-#
-#     Redistribution and use in source and binary forms, with or
-#     without modification, are permitted provided that the following
-#     conditions are met:
-#
-#      1. Redistributions of source code must retain the above
-#         copyright notice, this list of conditions and the following
-#         disclaimer.
-#
-#      2. Redistributions in binary form must reproduce the above
-#         copyright notice, this list of conditions and the following
-#         disclaimer in the documentation and/or other materials
-#         provided with the distribution.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-# BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-# ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
 
 import os
 import subprocess
@@ -52,23 +23,23 @@ signal.signal(signal.SIGINT, intr)
 
 
 def usage():
-        print "Usage: %s [-E] [-c] [-crx] [-ctx] [-f pattern] [-x pattern] IFC" % \
-                sys.argv[0]
-        print "\tSources"
-        print "\t\t-E show only ethtool -S stats (exclude ifconfig statistics)"
-        print "\tColors"
-        print "\t\t-crx color RX stats"
-        print "\t\t-ctx color TX stats"
-        print "\t\t-cerr color error stats"
-        print "\t\t-cdisc color discard stats"
-        print "\t\t-cd dim idle stats"
-        print "\t\t-c enable all colors"
-        print "\tFilters"
-        print "\t\t-f <pattern> include only stats that match the pattern"
-        print "\t\t-x <pattern> exclude stats which match the pattern"
-        print "\t\texclude takes precedence, both can be repeated"
-        print ""
-        print "\tOrder of parameters doesn't matter."
+        print("Usage: %s [-E] [-c] [-crx] [-ctx] [-f pattern] [-x pattern] IFC" % \
+                sys.argv[0])
+        print("\tSources")
+        print("\t\t-E show only ethtool -S stats (exclude ifconfig statistics)")
+        print("\tColors")
+        print("\t\t-crx color RX stats")
+        print("\t\t-ctx color TX stats")
+        print("\t\t-cerr color error stats")
+        print("\t\t-cdisc color discard stats")
+        print("\t\t-cd dim idle stats")
+        print("\t\t-c enable all colors")
+        print("\tFilters")
+        print("\t\t-f <pattern> include only stats that match the pattern")
+        print("\t\t-x <pattern> exclude stats which match the pattern")
+        print("\t\texclude takes precedence, both can be repeated")
+        print("")
+        print("\tOrder of parameters doesn't matter.")
         sys.exit(1)
 
 
@@ -155,13 +126,14 @@ while True:
                 if not ONLY_ETHTOOL:
                        out += get_sysfs_stats()
 
-                out += subprocess.check_output(['ethtool', '-S', IFC])
+                stdout = subprocess.check_output(['ethtool', '-S', IFC])
+                out += stdout.decode("utf-8")
 
                 _, columns = os.popen('stty size', 'r').read().split()
                 columns = int(columns)
         except:
                 os.system("clear")
-                print "Reading stats from device \033[1m%s\033[0m failed" % IFC
+                print("Reading stats from device \033[1m%s\033[0m failed" % IFC)
                 stats = {}
                 session = {}
                 time.sleep(0.5)
@@ -169,8 +141,8 @@ while True:
 
         w = [26, 13, 19, 19]
         for i in range(3):
-                w[i] += (columns - 80) / 4
-        w[3] += (columns + 3 - 80) / 4
+                w[i] += int((columns - 80) / 4)
+        w[3] += int((columns + 3 - 80) / 4)
 
         pr = "\033[4;1mSTAT {:>{a}} {:>{c}} {:>{d}}\033[0m\n".\
              format("RATE", "SESSION", "TOTAL",

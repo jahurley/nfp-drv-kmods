@@ -1,35 +1,5 @@
-/*
- * Copyright (C) 2015-2017 Netronome Systems, Inc.
- *
- * This software is dual licensed under the GNU General License Version 2,
- * June 1991 as shown in the file COPYING in the top-level directory of this
- * source tree or the BSD 2-Clause License provided below.  You have the
- * option to license this software under the complete terms of either license.
- *
- * The BSD 2-Clause License:
- *
- *     Redistribution and use in source and binary forms, with or
- *     without modification, are permitted provided that the following
- *     conditions are met:
- *
- *      1. Redistributions of source code must retain the above
- *         copyright notice, this list of conditions and the following
- *         disclaimer.
- *
- *      2. Redistributions in binary form must reproduce the above
- *         copyright notice, this list of conditions and the following
- *         disclaimer in the documentation and/or other materials
- *         provided with the distribution.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
- * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- */
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/* Copyright (C) 2015-2018 Netronome Systems, Inc. */
 
 /*
  * nfp6000_pcie.c
@@ -1526,7 +1496,7 @@ static void nfp6000_free(struct nfp_cpp *cpp)
 	kfree(nfp);
 }
 
-static void nfp6000_read_serial(struct device *dev, u8 *serial)
+static int nfp6000_read_serial(struct device *dev, u8 *serial)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	int pos;
@@ -1534,25 +1504,29 @@ static void nfp6000_read_serial(struct device *dev, u8 *serial)
 
 	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_DSN);
 	if (!pos) {
-		memset(serial, 0, NFP_SERIAL_LEN);
-		return;
+		dev_err(dev, "can't find PCIe Serial Number Capability\n");
+		return -EINVAL;
 	}
 
 	pci_read_config_dword(pdev, pos + 4, &reg);
 	put_unaligned_be16(reg >> 16, serial + 4);
 	pci_read_config_dword(pdev, pos + 8, &reg);
 	put_unaligned_be32(reg, serial);
+
+	return 0;
 }
 
-static u16 nfp6000_get_interface(struct device *dev)
+static int nfp6000_get_interface(struct device *dev)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	int pos;
 	u32 reg;
 
 	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_DSN);
-	if (!pos)
-		return NFP_CPP_INTERFACE(NFP_CPP_INTERFACE_TYPE_PCI, 0, 0xff);
+	if (!pos) {
+		dev_err(dev, "can't find PCIe Serial Number Capability\n");
+		return -EINVAL;
+	}
 
 	pci_read_config_dword(pdev, pos + 4, &reg);
 

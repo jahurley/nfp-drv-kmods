@@ -1,36 +1,5 @@
-// SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
-/*
- * Copyright (C) 2018 Netronome Systems, Inc.
- *
- * This software is dual licensed under the GNU General License Version 2,
- * June 1991 as shown in the file COPYING in the top-level directory of this
- * source tree or the BSD 2-Clause License provided below.  You have the
- * option to license this software under the complete terms of either license.
- *
- * The BSD 2-Clause License:
- *
- *     Redistribution and use in source and binary forms, with or
- *     without modification, are permitted provided that the following
- *     conditions are met:
- *
- *      1. Redistributions of source code must retain the above
- *         copyright notice, this list of conditions and the following
- *         disclaimer.
- *
- *      2. Redistributions in binary form must reproduce the above
- *         copyright notice, this list of conditions and the following
- *         disclaimer in the documentation and/or other materials
- *         provided with the distribution.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
- * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- */
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/* Copyright (C) 2018 Netronome Systems, Inc. */
 
 #include "../nfp_net_compat.h"
 
@@ -563,13 +532,14 @@ nfp_fl_lag_changeupper_event(struct nfp_fl_lag *lag,
 
 	lag_upper_info = info->upper_info;
 
-#if LINUX_RELEASE_4_18
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 18, 0)
 	/* Firmware supports active/backup and L3/L4 hash bonds. */
 	if (lag_upper_info &&
 	    lag_upper_info->tx_type != NETDEV_LAG_TX_TYPE_ACTIVEBACKUP &&
 	    (lag_upper_info->tx_type != NETDEV_LAG_TX_TYPE_HASH ||
-	    (lag_upper_info->hash_type != NETDEV_LAG_HASH_L34 &&
-	    lag_upper_info->hash_type != NETDEV_LAG_HASH_E34))) {
+	     (lag_upper_info->hash_type != NETDEV_LAG_HASH_L34 &&
+	      lag_upper_info->hash_type != NETDEV_LAG_HASH_E34 &&
+	      lag_upper_info->hash_type != NETDEV_LAG_HASH_UNKNOWN))) {
 		can_offload = false;
 		nfp_flower_cmsg_warn(priv->app,
 				     "Unable to offload tx_type %u hash %u\n",
