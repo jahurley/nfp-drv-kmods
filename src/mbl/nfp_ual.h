@@ -128,6 +128,7 @@ struct nfp_mbl_dev_ctx {
  * @repr_change_mtu: MTU change on a netdev has been requested (veto-only,
  *		change is not guaranteed to be committed)
  * @repr_set_mac_address:	Repr MAC address change has been requested
+ * @eth_port_speed_changed:	ethernet port speed changed. notification only
  */
 struct nfp_ual_ops {
 	const char *name;
@@ -170,6 +171,9 @@ struct nfp_ual_ops {
 			       int new_mtu);
 	int (*repr_set_mac_address)(void *cookie, struct net_device *netdev,
 				    void *addr);
+
+	void (*eth_port_speed_changed)(void *cookie, struct nfp_port *orig_port,
+				       struct nfp_eth_table_port *new_eth_port);
 };
 
 int nfp_ual_register(const struct nfp_ual_ops *ops, void *cookie);

@@ -1011,6 +1011,17 @@ nfp_mbl_sync_repr_features(struct nfp_app *app, struct net_device *netdev,
 	return 0;
 }
 
+static void
+nfp_mbl_eth_port_speed_changed(struct nfp_app *app, struct nfp_port *orig_port,
+			       struct nfp_eth_table_port *new_eth_port)
+{
+	if (!ctx->ual_ops || !ctx->ual_ops->eth_port_speed_changed)
+		return;
+
+	ctx->ual_ops->eth_port_speed_changed(ctx->ual_cookie, orig_port,
+					     new_eth_port);
+}
+
 const struct nfp_app_type app_mbl = {
 	.id		= NFP_APP_MBL,
 	.name		= "mbl",
@@ -1056,4 +1067,6 @@ const struct nfp_app_type app_mbl = {
 	.parse_meta	= nfp_mbl_parse_meta,
 	.skb_set_meta	= nfp_mbl_skb_set_meta,
 	.prep_tx_meta	= nfp_mbl_prep_tx_meta,
+
+	.eth_port_speed_changed = nfp_mbl_eth_port_speed_changed,
 };
