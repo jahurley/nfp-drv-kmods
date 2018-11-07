@@ -542,6 +542,8 @@ nfp_net_eth_port_update(struct nfp_cpp *cpp, struct nfp_port *port,
 		nfp_warn(cpp, "Port #%d config changed, unregistering. Driver reload required before port will be operational again.\n", port->eth_id);
 		port->type = NFP_PORT_INVALID;
 	}
+	if (eth_port->speed != port->eth_port->speed)
+		nfp_app_eth_port_speed_changed(port->app, port, eth_port);
 
 	memcpy(port->eth_port, eth_port, sizeof(*eth_port));
 
