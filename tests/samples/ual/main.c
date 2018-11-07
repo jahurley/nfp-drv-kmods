@@ -9,6 +9,7 @@
 #include "nfpcore/nfp_nsp.h"
 #include "nfp_app.h"
 #include "nfp_main.h"
+#include "nfp_port.h"
 #include "nfp_ual.h"
 
 #include "main.h"
@@ -502,6 +503,14 @@ ualt_repr_set_mac_address(void *cookie, struct net_device *netdev, void *addr)
 	return 0;
 }
 
+static void
+ualt_eth_port_speed_changed(void *cookie, struct nfp_port *orig_port,
+			    struct nfp_eth_table_port *new_eth_port)
+{
+	pr_info("%s: speed changed, %d to %d\n", orig_port->netdev->name,
+		orig_port->eth_port->speed, new_eth_port->speed);
+}
+
 const struct nfp_ual_ops ops = {
 	.name = UALT_NAME,
 	.spawn_vf_reprs = false,
@@ -532,6 +541,8 @@ const struct nfp_ual_ops ops = {
 
 	.repr_change_mtu = ualt_repr_change_mtu,
 	.repr_set_mac_address = ualt_repr_set_mac_address,
+
+	.eth_port_speed_changed = ualt_eth_port_speed_changed,
 };
 
 static int __init nfp_ualt_module_init(void)
