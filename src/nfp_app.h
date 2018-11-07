@@ -104,6 +104,7 @@ extern const struct nfp_app_type app_mbl;
  * @repr_set_mac_address:	MAC address change has been requested
  * @set_repr_features:		called when vnic features are modified
  * @repr_xmit:	hook called during repr xmit call
+ * @eth_port_speed_changed:	ethernet port speed changed. notification only
  */
 struct nfp_app_type {
 	enum nfp_app_id id;
@@ -193,6 +194,10 @@ struct nfp_app_type {
 
 	int (*repr_xmit)(struct nfp_app *app, struct sk_buff *skb,
 			 struct nfp_repr *repr);
+
+	void (*eth_port_speed_changed)(struct nfp_app *app,
+				       struct nfp_port *orig_port,
+				       struct nfp_eth_table_port *new_eth_port);
 };
 
 /**
@@ -563,6 +568,16 @@ nfp_app_set_repr_features(struct nfp_app *app, struct net_device *netdev,
 	if (!app || !app->type->set_repr_features)
 		return 0;
 	return app->type->set_repr_features(app, netdev, features);
+}
+
+static inline void
+nfp_app_eth_port_speed_changed(struct nfp_app *app, struct nfp_port *orig_port,
+			       struct nfp_eth_table_port *new_eth_port)
+{
+	if (!app || !app->type->eth_port_speed_changed)
+		return;
+
+	app->type->eth_port_speed_changed(app, orig_port, new_eth_port);
 }
 
 static inline int nfp_app_pcie_unit(struct nfp_app *app)
