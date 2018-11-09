@@ -224,6 +224,10 @@ nfp_eth_calc_port_type(struct nfp_cpp *cpp, struct nfp_eth_table_port *entry)
 
 	if (entry->media == NFP_MEDIA_FIBRE)
 		entry->port_type = PORT_FIBRE;
+	else if ((entry->media == NFP_MEDIA_TP) ||
+		 (entry->media == NFP_MEDIA_DAC_PASSIVE &&
+			entry->interface == NFP_INTERFACE_RJ45))
+		entry->port_type = PORT_TP;
 	else
 		entry->port_type = PORT_DA;
 }

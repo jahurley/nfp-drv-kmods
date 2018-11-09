@@ -55,6 +55,7 @@ enum nfp_eth_media {
 	NFP_MEDIA_DAC_PASSIVE = 0,
 	NFP_MEDIA_DAC_ACTIVE,
 	NFP_MEDIA_FIBRE,
+	NFP_MEDIA_TP,
 };
 
 enum nfp_eth_aneg {
