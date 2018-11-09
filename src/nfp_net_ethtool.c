@@ -260,6 +260,8 @@ nfp_net_get_link_ksettings(struct net_device *netdev,
 		[NFP_NET_CFG_STS_LINK_RATE_40G]		= SPEED_40000,
 		[NFP_NET_CFG_STS_LINK_RATE_50G]		= SPEED_50000,
 		[NFP_NET_CFG_STS_LINK_RATE_100G]	= SPEED_100000,
+		[NFP_NET_CFG_STS_LINK_RATE_2500M]	= SPEED_2500,
+		[NFP_NET_CFG_STS_LINK_RATE_5G]		= SPEED_5000,
 	};
 	struct nfp_eth_table_port *eth_port;
 	struct nfp_port *port;
