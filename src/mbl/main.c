@@ -510,7 +510,13 @@ static int nfp_mbl_calc_device_count(void)
 			count++;
 	}
 
-	/* XXX: Port expanders are not taken into consideration yet. */
+	for (iter = 0; iter < NFP_MBL_DEV_ID_MAX; iter++) {
+		snprintf(name, sizeof(name), "nicmod%u.present", iter);
+		value = nfp_hwinfo_lookup(primary->app->pf->hwinfo, name);
+		if (value && strcmp(value, "true") == 0)
+			count++;
+	}
+
 	return count;
 }
 
