@@ -72,6 +72,8 @@ enum nfp_eth_rate {
 	RATE_1G,
 	RATE_10G,
 	RATE_25G,
+	RATE_2500M,
+	RATE_5G,
 };
 
 union eth_table_entry {
@@ -95,6 +97,8 @@ static const struct {
 	{ RATE_1G,	SPEED_1000, },
 	{ RATE_10G,	SPEED_10000, },
 	{ RATE_25G,	SPEED_25000, },
+	{ RATE_2500M,	SPEED_2500, },
+	{ RATE_5G,	SPEED_5000, },
 };
 
 static unsigned int nfp_eth_rate2speed(enum nfp_eth_rate rate)

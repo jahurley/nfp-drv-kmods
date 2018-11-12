@@ -41,9 +41,12 @@ static inline bool nfp_nsp_has_hwinfo_lookup(struct nfp_nsp *state)
 enum nfp_eth_interface {
 	NFP_INTERFACE_NONE	= 0,
 	NFP_INTERFACE_SFP	= 1,
+	NFP_INTERFACE_SFP_2G	= 2,
+	NFP_INTERFACE_SFP_5G	= 5,
 	NFP_INTERFACE_SFPP	= 10,
 	NFP_INTERFACE_SFP28	= 28,
 	NFP_INTERFACE_QSFP	= 40,
+	NFP_INTERFACE_RJ45	= 45,
 	NFP_INTERFACE_CXP	= 100,
 	NFP_INTERFACE_QSFP28	= 112,
 };
