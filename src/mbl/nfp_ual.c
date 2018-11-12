@@ -263,7 +263,41 @@ int nfp_ual_get_pcie_unit_count(u8 *bitmap)
 		dev_index = NFP_MBL_DEV_INDEX(NFP_MBL_DEV_TYPE_MASTER_PF, i);
 		if (ctx->dev_ctx[dev_index]) {
 			count++;
-			map |= 1<<i;
+			map |= 1 << i;
+		}
+	}
+
+	if (bitmap)
+		*bitmap = map;
+
+	return count;
+}
+
+/**
+ * nfp_ual_get_nicmod_count() - return the number of NICmods probed
+ *
+ * @bitmap:	if non NULL, return bitmap of the NICmods present
+ *
+ * Return: NICmod count or negative error
+ */
+int nfp_ual_get_nicmod_count(u8 *bitmap)
+{
+	struct nfp_mbl_global_data *ctx;
+	int i, count, dev_index;
+	u8 map;
+
+	ctx = nfp_mbl_get_global_ctx();
+	if (!ctx)
+		return -ENOENT;
+
+	count = 0;
+	map = 0;
+
+	for (i = 0; i < NFP_MBL_DEV_ID_MAX; i++) {
+		dev_index = NFP_MBL_DEV_INDEX(NFP_MBL_DEV_TYPE_NICMOD, i);
+		if (ctx->dev_ctx[dev_index]) {
+			count++;
+			map |= 1 << i;
 		}
 	}
 
