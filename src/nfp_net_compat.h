@@ -502,6 +502,10 @@ compat__ethtool_cmd_speed_set(struct ethtool_link_ksettings *cmd, u32 speed)
 #undef ethtool_link_ksettings_add_link_mode
 #define ethtool_link_ksettings_add_link_mode(cmd, memb, type)	\
 		(cmd)->base.memb |= SUPPORTED_ ## type
+
+#undef ethtool_link_ksettings_del_link_mode
+#define ethtool_link_ksettings_del_link_mode(cmd, memb, type)	\
+		(cmd)->base.memb &= ~(SUPPORTED_ ## type)
 #else
 static inline u32
 compat__ethtool_cmd_speed_get(const struct ethtool_link_ksettings *cmd)

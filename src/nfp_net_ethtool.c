@@ -240,6 +240,30 @@ nfp_net_set_fec_link_mode(struct nfp_eth_table_port *eth_port,
 #endif
 }
 
+static void
+nfp_net_set_tp_link_mode(struct nfp_eth_table_port *eth_port,
+			 struct ethtool_link_ksettings *c)
+{
+	ethtool_link_ksettings_add_link_mode(c, supported, TP);
+	ethtool_link_ksettings_add_link_mode(c, supported, Autoneg);
+	ethtool_link_ksettings_add_link_mode(c, supported, 10baseT_Full);
+	ethtool_link_ksettings_add_link_mode(c, supported, 100baseT_Full);
+	ethtool_link_ksettings_add_link_mode(c, supported, 1000baseT_Full);
+
+	ethtool_link_ksettings_add_link_mode(c, advertising, TP);
+	ethtool_link_ksettings_add_link_mode(c, advertising, Autoneg);
+	ethtool_link_ksettings_add_link_mode(c, advertising, 10baseT_Full);
+	ethtool_link_ksettings_add_link_mode(c, advertising, 100baseT_Full);
+	ethtool_link_ksettings_add_link_mode(c, advertising, 1000baseT_Full);
+
+	/* By default, all NFP ports are assumed to support at least Fibre
+	 * connections. This is not true for TP ports, but we only know this
+	 * once we were able to read the port state. TP ports are less likely
+	 * than Fibre ports.
+	 */
+	ethtool_link_ksettings_del_link_mode(c, supported, FIBRE);
+}
+
 /**
  * nfp_net_get_link_ksettings - Get Link Speed settings
  * @netdev:	network interface device structure
@@ -290,6 +314,9 @@ nfp_net_get_link_ksettings(struct net_device *netdev,
 		cmd->base.port = eth_port->port_type;
 		compat__ethtool_cmd_speed_set(cmd, eth_port->speed);
 		cmd->base.duplex = DUPLEX_FULL;
+
+		if (eth_port->port_type == PORT_TP)
+			nfp_net_set_tp_link_mode(eth_port, cmd);
 		return 0;
 	}
 
