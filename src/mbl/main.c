@@ -605,21 +605,24 @@ static int nfp_mbl_app_start(struct nfp_app *app)
 	return 0;
 }
 
+static unsigned int nfp_mbl_get_hwinfo_nfp_id(struct nfp_pf *pf)
+{
+	const char *id_str;
+	unsigned long id;
+
+	id_str = nfp_hwinfo_lookup(pf->hwinfo, "nfp.id");
+	if ((!id_str) || (kstrtoul(id_str, 0, &id) < 0))
+		return 0;
+
+	return (unsigned int)id;
+}
+
 static int nfp_mbl_get_dev_type(struct nfp_pf *pf)
 {
-	const char *partno;
+	if (!nfp_mbl_get_hwinfo_nfp_id(pf))
+		return NFP_MBL_DEV_TYPE_MASTER_PF;
 
-	partno = nfp_hwinfo_lookup(pf->hwinfo, "assembly.partno");
-	if (!partno)
-		return -ENODEV;
-
-	/* For now we base this decision on the AMDA number of the port expander
-	 * mockup.
-	 */
-	if (strcmp(partno, "AMDA0997-0001") == 0)
-		return NFP_MBL_DEV_TYPE_NICMOD;
-
-	return NFP_MBL_DEV_TYPE_MASTER_PF;
+	return NFP_MBL_DEV_TYPE_NICMOD;
 }
 
 static bool
@@ -653,8 +656,6 @@ static int nfp_mbl_app_init(struct nfp_app *app)
 
 	nfp_pcie = nfp_cppcore_pcie_unit(app->pf->cpp);
 	type = nfp_mbl_get_dev_type(app->pf);
-	if (type < 0)
-		return type;
 
 	dev_index = NFP_MBL_DEV_INDEX(type, nfp_pcie);
 
