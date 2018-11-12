@@ -4122,6 +4122,9 @@ static void nfp_net_netdev_init(struct nfp_net *nn)
 
 static void nfp_net_netdev_clean(struct nfp_net *nn)
 {
+	if (!nn->tlv_caps.extended_caps & NFP_NET_CFG_CTRL_EXT_IPSEC)
+		return;
+
 	nfp_net_ipsec_clean(nn->dp.netdev);
 }
 
