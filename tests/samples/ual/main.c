@@ -248,6 +248,13 @@ static int ualt_init(void *cookie, enum nfp_mbl_status_type status)
 		return err;
 	}
 
+	err = nfp_ual_get_nicmod_count(&priv->nicmod_map);
+	if (err < 0) {
+		pr_warn("%s: unable to determine NICmod count: %i\n", UALT_NAME,
+			err);
+		return err;
+	}
+
 	i = -1;
 	while (priv->pcie_map >> ++i) {
 		if (status == NFP_MBL_STATUS_SUCCESS)
@@ -257,6 +264,18 @@ static int ualt_init(void *cookie, enum nfp_mbl_status_type status)
 		else
 			pr_warn("%s: DEGRADED[%u]: device #%i %s\n", UALT_NAME,
 				status, i, (((priv->pcie_map >> i) & 0x1) ?
+					"<active>" : "<inactive>"));
+	}
+
+	i = -1;
+	while (priv->nicmod_map >> ++i) {
+		if (status == NFP_MBL_STATUS_SUCCESS)
+			pr_info("%s: OPERATIONAL: nicmod #%i %s\n", UALT_NAME,
+				i, (((priv->nicmod_map >> i) & 0x1) ?
+					"<active>" : "<inactive>"));
+		else
+			pr_warn("%s: DEGRADED[%u]: nicmod #%i %s\n", UALT_NAME,
+				status, i, (((priv->nicmod_map >> i) & 0x1) ?
 					"<active>" : "<inactive>"));
 	}
 

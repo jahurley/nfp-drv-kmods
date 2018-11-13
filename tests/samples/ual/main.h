@@ -26,6 +26,7 @@ enum ualt_cmsg_port_flag {
 struct ualt_cookie {
 	u32 label;
 	u8 pcie_map;
+	u8 nicmod_map;
 
 	bool tx_meta_enable;
 	u64 tx_meta_data;
