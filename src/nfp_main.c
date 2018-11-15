@@ -541,6 +541,23 @@ nfp_net_fw_find(struct pci_dev *pdev, struct nfp_pf *pf)
 	return nfp_net_fw_request(pdev, pf, fw_name);
 }
 
+static bool nfp_use_fw_from_flash(struct nfp_pf *pf, struct nfp_nsp *nsp)
+{
+	char hwinfo[32];
+
+	if (!nfp_nsp_has_hwinfo_lookup(nsp) || !nfp_nsp_has_stored_fw_load(nsp))
+		return false;
+
+	snprintf(hwinfo, sizeof(hwinfo), "app_fw_from_flash");
+	if (nfp_nsp_hwinfo_lookup(nsp, hwinfo, sizeof(hwinfo)))
+		return false;
+
+	if (strcmp(hwinfo, "1") != 0)
+		return false;
+
+	return true;
+}
+
 /**
  * nfp_net_fw_load() - Load the firmware image
  * @pdev:       PCI Device structure
@@ -561,6 +578,12 @@ nfp_fw_load(struct pci_dev *pdev, struct nfp_pf *pf, struct nfp_nsp *nsp)
 		/* Only Unit 0 should reset or load firmware */
 		dev_info(&pdev->dev, "Firmware will be loaded by partner\n");
 		return 0;
+	}
+
+	if (nfp_use_fw_from_flash(pf, nsp)) {
+		dev_info(&pdev->dev, "Attempting to load firmware from flash\n");
+		if (!nfp_nsp_load_stored_fw(nsp))
+			return 0;
 	}
 
 	fw = nfp_net_fw_find(pdev, pf);
