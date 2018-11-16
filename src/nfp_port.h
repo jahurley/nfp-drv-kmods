@@ -63,6 +63,7 @@ enum nfp_port_flags {
  *		Table port entry
  * @eth_stats:	for %NFP_PORT_PHYS_PORT MAC stats if available
  * @expander_stats:	for %NFP_PORT_PHYS_PORT_EXP MAC stats if available
+ * @expander_id:	expander ID for %NFP_PORT_PHYS_PORT_EXP
  * @pf_id:	for %NFP_PORT_PF_PORT, %NFP_PORT_VF_PORT ID of the PCI PF (0-3)
  * @vf_id:	for %NFP_PORT_VF_PORT ID of the PCI VF within @pf_id
  * @pf_split:	for %NFP_PORT_PF_PORT %true if PCI PF has more than one vNIC
@@ -89,6 +90,7 @@ struct nfp_port {
 			struct nfp_eth_table_port *eth_port;
 			u8 __iomem *eth_stats;
 			struct nfp_mac_stats_port *expander_stats;
+			unsigned int expander_id;
 		};
 		/* NFP_PORT_PF_PORT, NFP_PORT_VF_PORT */
 		struct {
@@ -151,6 +153,12 @@ void nfp_port_free(struct nfp_port *port);
 
 int nfp_port_init_phy_port(struct nfp_pf *pf, struct nfp_app *app,
 			   struct nfp_port *port, unsigned int id);
+
+static inline void
+nfp_port_set_expander_id(struct nfp_port *port, unsigned int expander_id)
+{
+	port->expander_id = expander_id;
+}
 
 #ifdef CONFIG_NFP_NET_PF
 int nfp_net_refresh_eth_port(struct nfp_port *port);

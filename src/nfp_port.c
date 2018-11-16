@@ -173,7 +173,8 @@ nfp_port_get_phys_port_name(struct net_device *netdev, char *name, size_t len)
 				     eth_port->label_subport);
 
 		if (port->type == NFP_PORT_PHYS_PORT_EXP)
-			n = snprintf(name, len, "%se0", name);
+			n = snprintf(name, len, "%se%d", name,
+				     port->expander_id);
 
 		break;
 	case NFP_PORT_PF_PORT:
