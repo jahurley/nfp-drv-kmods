@@ -231,7 +231,7 @@ nfp_mbl_app_spawn_vnic_reprs(struct nfp_app *app, unsigned int cnt)
 	if (!reprs)
 		return -ENOMEM;
 
-	dev_index = NFP_MBL_DEV_INDEX(dev_ctx->type, dev_ctx->pcie_unit);
+	dev_index = NFP_MBL_DEV_INDEX(dev_ctx->type, dev_ctx->dev_id);
 	for (i = 0; i < cnt; i++) {
 		struct net_device *repr;
 		struct nfp_port *port;
@@ -295,7 +295,7 @@ nfp_mbl_app_spawn_phy_reprs(struct nfp_app *app)
 	if (!primary)
 		return -ENODEV;
 
-	dev_index = NFP_MBL_DEV_INDEX(dev_ctx->type, dev_ctx->pcie_unit);
+	dev_index = NFP_MBL_DEV_INDEX(dev_ctx->type, dev_ctx->dev_id);
 	for (i = 0; i < eth_tbl->count; i++) {
 		unsigned int phys_port = eth_tbl->ports[i].index;
 		struct net_device *repr;
@@ -536,11 +536,11 @@ static void nfp_mbl_app_init_complete(struct nfp_app *app)
 	if (dev_ctx->nn)
 		nfp_mbl_info(dev_ctx,
 			     "registered device #%u.%u, data vNIC is %s\n",
-			     dev_ctx->type, dev_ctx->pcie_unit,
+			     dev_ctx->type, dev_ctx->dev_id,
 			     dev_ctx->nn->dp.netdev->name);
 	else
 		nfp_mbl_info(dev_ctx, "registered device #%u.%u\n",
-			     dev_ctx->type, dev_ctx->pcie_unit);
+			     dev_ctx->type, dev_ctx->dev_id);
 
 	if (ctx->init_count >= need) {
 		mutex_lock(&ctx->mbl_lock);
@@ -651,13 +651,18 @@ static int nfp_mbl_app_init(struct nfp_app *app)
 	struct nfp_mbl_dev_ctx *dev_ctx;
 	struct nfp_pf *pf = app->pf;
 	enum nfp_mbl_dev_type type;
+	u8 nfp_pcie, dev_id;
 	int err, dev_index;
-	u8 nfp_pcie;
 
 	nfp_pcie = nfp_cppcore_pcie_unit(app->pf->cpp);
 	type = nfp_mbl_get_dev_type(app->pf);
+	if (type == NFP_MBL_DEV_TYPE_MASTER_PF)
+		dev_id = nfp_pcie;
+	else
+		/* Hwinfo ID starts at 1 */
+		dev_id = nfp_mbl_get_hwinfo_nfp_id(app->pf) - 1;
 
-	dev_index = NFP_MBL_DEV_INDEX(type, nfp_pcie);
+	dev_index = NFP_MBL_DEV_INDEX(type, dev_id);
 
 	if (!nfp_mbl_can_probe(pf, type, nfp_pcie))
 		return -EPROBE_DEFER;
@@ -699,6 +704,7 @@ static int nfp_mbl_app_init(struct nfp_app *app)
 	dev_ctx->app = app;
 	dev_ctx->type = type;
 	dev_ctx->pcie_unit = nfp_pcie;
+	dev_ctx->dev_id = dev_id;
 
 	ctx->dev_ctx[dev_index] = dev_ctx;
 	ctx->ref_count++;
@@ -729,10 +735,10 @@ static void nfp_mbl_app_clean(struct nfp_app *app)
 
 	/* Note that the UAL has already been stopped at this point. */
 	nfp_mbl_info(dev_ctx, "unregistering device #%u.%u\n", dev_ctx->type,
-		     dev_ctx->pcie_unit);
+		     dev_ctx->dev_id);
 
 	nfp_mbl_dealloc_ctx(NFP_MBL_DEV_INDEX(dev_ctx->type,
-					      dev_ctx->pcie_unit));
+					      dev_ctx->dev_id));
 
 	vfree(app->priv);
 	app->priv = NULL;

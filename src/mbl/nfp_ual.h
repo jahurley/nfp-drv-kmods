@@ -91,6 +91,7 @@ struct nfp_mbl_repr {
  * @app:		Back pointer to app
  * @nn:			Pointer to data vNIC
  * @type:		Type of device %NFP_MBL_DEV_TYPE_*
+ * @dev_id		Device ID used to determine device index
  * @pcie_unit:		PCIe unit number, e.g. 0-3 for main NFP
  * @bool:		set when initialization for this device is done
  */
@@ -98,6 +99,7 @@ struct nfp_mbl_dev_ctx {
 	struct nfp_app *app;
 	struct nfp_net *nn;
 	enum nfp_mbl_dev_type type;
+	u8 dev_id;
 	u8 pcie_unit;
 	bool initialized;
 };
@@ -230,7 +232,7 @@ nfp_ual_get_mbl_dev_index_from_ctx(struct nfp_mbl_dev_ctx *dev_ctx)
 	if (!dev_ctx)
 		return -ENOENT;
 
-	return NFP_MBL_DEV_INDEX(dev_ctx->type, dev_ctx->pcie_unit);
+	return NFP_MBL_DEV_INDEX(dev_ctx->type, dev_ctx->dev_id);
 }
 
 struct nfp_reprs *nfp_ual_get_reprs(int dev_index, enum nfp_repr_type type);

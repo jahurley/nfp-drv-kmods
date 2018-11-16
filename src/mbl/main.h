@@ -16,13 +16,13 @@ struct nfp_cpp;
 
 #define nfp_mbl_err(dev_ctx, fmt, args...) \
 	nfp_err((dev_ctx)->app->cpp, "MBL dev#%d.%d: " fmt, (dev_ctx)->type, \
-		(dev_ctx)->pcie_unit, ## args)
+		(dev_ctx)->dev_id, ## args)
 #define nfp_mbl_warn(dev_ctx, fmt, args...) \
 	nfp_warn((dev_ctx)->app->cpp, "MBL dev#%d.%d: " fmt, (dev_ctx)->type, \
-		 (dev_ctx)->pcie_unit, ## args)
+		 (dev_ctx)->dev_id, ## args)
 #define nfp_mbl_info(dev_ctx, fmt, args...) \
 	nfp_info((dev_ctx)->app->cpp, "MBL dev#%d.%d: " fmt, (dev_ctx)->type, \
-		 (dev_ctx)->pcie_unit, ## args)
+		 (dev_ctx)->dev_id, ## args)
 
 /**
  * struct nfp_mbl_global_data - global context data
