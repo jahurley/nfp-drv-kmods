@@ -320,6 +320,8 @@ nfp_mbl_app_spawn_phy_reprs(struct nfp_app *app)
 			goto err_reprs_clean;
 		}
 
+		nfp_port_set_expander_id(port, dev_ctx->dev_id);
+
 		SET_NETDEV_DEV(repr, &primary->nn->pdev->dev);
 		nfp_net_get_mac_addr(app->pf, repr, port);
 
