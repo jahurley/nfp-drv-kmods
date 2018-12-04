@@ -507,12 +507,22 @@ int nfp_nsp_wait(struct nfp_nsp *state)
 
 int nfp_nsp_device_soft_reset(struct nfp_nsp *state)
 {
-	return nfp_nsp_command(state, SPCODE_SOFT_RESET);
+	const struct nfp_nsp_command_arg arg = {
+		.code		= SPCODE_SOFT_RESET,
+		.timeout_sec	= 60,
+	};
+
+	return __nfp_nsp_command(state, &arg);
 }
 
 int nfp_nsp_mac_reinit(struct nfp_nsp *state)
 {
-	return nfp_nsp_command(state, SPCODE_MAC_INIT);
+	const struct nfp_nsp_command_arg arg = {
+		.code		= SPCODE_MAC_INIT,
+		.timeout_sec	= 60,
+	};
+
+	return __nfp_nsp_command(state, &arg);
 }
 
 static void nfp_nsp_load_fw_extended_msg(struct nfp_nsp *state, u32 ret_val)
