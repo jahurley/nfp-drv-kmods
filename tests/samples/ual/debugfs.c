@@ -52,11 +52,9 @@ ualt_repr_phys_port_read(struct file *file, char __user *buf, size_t size,
 	}
 
 	ret = snprintf(value_str, sizeof(value_str),
-		       "%u %u %u.%u %u.%u %u %u.%u\n", eth_port->eth_index,
+		       "%u %u %u.%u %u.%u\n", eth_port->eth_index,
 		       port->type, eth_port->nbi, eth_port->base,
-		       eth_port->label_port, eth_port->label_subport,
-		       eth_port->channel_base, eth_port->cluster,
-		       eth_port->cluster_port);
+		       eth_port->label_port, eth_port->label_subport);
 
 	ret = simple_read_from_buffer(buf, size, ppos, value_str, ret);
 
