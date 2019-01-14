@@ -57,6 +57,14 @@ enum nfp_mbl_dev_type {
 #define NFP_MBL_DEV_TYPE(index)		(index >> 2)
 #define NFP_MBL_DEV_ID(index)		(index & 0x3)
 
+/* The main NFP accesses the port expander ports through a DSA mechanism. The
+ * port numbering on the main NFP is based on the NSP eth index with an offset
+ * per port expander device. The defines below indicate the offset to use by
+ * UAL applications when referring to the port expander ports.
+ */
+#define NFP_MBL_PORTEX_0_PORT_OFFSET	(BIT(6))
+#define NFP_MBL_PORTEX_1_PORT_OFFSET	(BIT(5) | BIT(6))
+
 /**
  * enum nfp_mbl_status_type - type of MBL device probe status
  * @NFP_MBL_STATUS_PROBE:	devices are still in progress of being probed
