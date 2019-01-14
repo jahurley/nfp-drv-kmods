@@ -27,7 +27,6 @@
 
 #define NSP_ETH_PORT_LANES		GENMASK_ULL(3, 0)
 #define NSP_ETH_PORT_INDEX		GENMASK_ULL(15, 8)
-#define NSP_ETH_PORT_ECHANNEL_BASE	GENMASK_ULL(39, 32)
 #define NSP_ETH_PORT_LABEL		GENMASK_ULL(53, 48)
 #define NSP_ETH_PORT_PHYLABEL		GENMASK_ULL(59, 54)
 #define NSP_ETH_PORT_FEC_SUPP_BASER	BIT_ULL(60)
@@ -147,9 +146,6 @@ nfp_eth_port_translate(struct nfp_nsp *nsp, const union eth_table_entry *src,
 	dst->nbi = index / NSP_ETH_NBI_PORT_COUNT;
 	dst->base = index % NSP_ETH_NBI_PORT_COUNT;
 	dst->lanes = FIELD_GET(NSP_ETH_PORT_LANES, port);
-	dst->channel_base = FIELD_GET(NSP_ETH_PORT_ECHANNEL_BASE, port);
-	dst->cluster = (dst->channel_base >> 3);
-	dst->cluster_port = ((dst->channel_base >> 2) % 2);
 
 	dst->enabled = FIELD_GET(NSP_ETH_STATE_ENABLED, state);
 	dst->tx_enabled = FIELD_GET(NSP_ETH_STATE_TX_ENABLED, state);
