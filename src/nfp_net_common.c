@@ -3340,7 +3340,9 @@ static void nfp_net_netpoll(struct net_device *netdev)
 static compat__stat64_ret_t nfp_net_stat64(struct net_device *netdev,
 					   struct rtnl_link_stats64 *stats)
 {
+	struct nfp_port *port = nfp_port_from_netdev(netdev);
 	struct nfp_net *nn = netdev_priv(netdev);
+	u8 __iomem *mem;
 	int r;
 
 	/* Collect software stats */
@@ -3373,7 +3375,29 @@ static compat__stat64_ret_t nfp_net_stat64(struct net_device *netdev,
 	/* Add in device stats */
 	stats->multicast += nn_readq(nn, NFP_NET_CFG_STATS_RX_MC_FRAMES);
 	stats->rx_dropped += nn_readq(nn, NFP_NET_CFG_STATS_RX_DISCARDS);
-	stats->rx_errors += nn_readq(nn, NFP_NET_CFG_STATS_RX_ERRORS);
+
+	if (__nfp_port_get_eth_port(port) && nfp_port_has_mac_stats(port)) {
+		mem = port->eth_stats;
+
+		stats->rx_dropped += readq(mem + NFP_MAC_STATS_RX_DROP_EVENTS);
+
+		stats->rx_length_errors =
+			readq(mem + NFP_MAC_STATS_RX_JABBERS) +
+			readq(mem + NFP_MAC_STATS_RX_FRAME_TOO_LONG_ERRORS) +
+			readq(mem + NFP_MAC_STATS_RX_RANGE_LENGTH_ERRORS) +
+			readq(mem + NFP_MAC_STATS_RX_UNDERSIZE_PKTS) +
+			readq(mem + NFP_MAC_STATS_RX_FRAGMENTS) +
+			readq(mem + NFP_MAC_STATS_RX_OVERSIZE_PKTS);
+		stats->rx_crc_errors =
+			readq(mem +
+				NFP_MAC_STATS_RX_FRAME_CHECK_SEQUENCE_ERRORS);
+		stats->rx_frame_errors =
+			readq(mem + NFP_MAC_STATS_RX_ALIGNMENT_ERRORS);
+	}
+
+	stats->rx_fifo_errors = nn_readq(nn, NFP_NET_CFG_STATS_RX_ERRORS);
+	stats->rx_errors = stats->rx_fifo_errors + stats->rx_frame_errors +
+		stats->rx_crc_errors + stats->rx_length_errors;
 
 	stats->tx_dropped += nn_readq(nn, NFP_NET_CFG_STATS_TX_DISCARDS);
 	stats->tx_errors += nn_readq(nn, NFP_NET_CFG_STATS_TX_ERRORS);

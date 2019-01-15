@@ -66,11 +66,27 @@ nfp_repr_phy_port_get_stats64(struct nfp_port *port,
 
 	stats->tx_packets = readq(mem + NFP_MAC_STATS_TX_FRAMES_TRANSMITTED_OK);
 	stats->tx_bytes = readq(mem + NFP_MAC_STATS_TX_OUT_OCTETS);
-	stats->tx_dropped = readq(mem + NFP_MAC_STATS_TX_OUT_ERRORS);
+	stats->tx_dropped = readq(mem + NFP_MAC_STATS_TX_QUEUE_DROP);
+	stats->tx_errors = readq(mem + NFP_MAC_STATS_TX_OUT_ERRORS);
+
+	stats->rx_length_errors = readq(mem + NFP_MAC_STATS_RX_JABBERS) +
+		readq(mem + NFP_MAC_STATS_RX_FRAME_TOO_LONG_ERRORS) +
+		readq(mem + NFP_MAC_STATS_RX_RANGE_LENGTH_ERRORS) +
+		readq(mem + NFP_MAC_STATS_RX_UNDERSIZE_PKTS) +
+		readq(mem + NFP_MAC_STATS_RX_FRAGMENTS) +
+		readq(mem + NFP_MAC_STATS_RX_OVERSIZE_PKTS);
+	stats->rx_crc_errors =
+		readq(mem + NFP_MAC_STATS_RX_FRAME_CHECK_SEQUENCE_ERRORS);
+	stats->rx_frame_errors = readq(mem + NFP_MAC_STATS_RX_ALIGNMENT_ERRORS);
+	stats->rx_fifo_errors = readq(mem + NFP_MAC_STATS_RX_IN_ERRORS);
 
 	stats->rx_packets = readq(mem + NFP_MAC_STATS_RX_FRAMES_RECEIVED_OK);
 	stats->rx_bytes = readq(mem + NFP_MAC_STATS_RX_IN_OCTETS);
-	stats->rx_dropped = readq(mem + NFP_MAC_STATS_RX_IN_ERRORS);
+	stats->rx_dropped = readq(mem + NFP_MAC_STATS_RX_MAC_HEAD_DROP) +
+		readq(mem + NFP_MAC_STATS_RX_DROP_EVENTS);
+	stats->rx_errors = stats->rx_fifo_errors + stats->rx_frame_errors +
+		stats->rx_crc_errors + stats->rx_length_errors;
+	stats->multicast = readq(mem + NFP_MAC_STATS_RX_MULTICAST_PKTS);
 }
 
 static void
