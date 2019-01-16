@@ -62,7 +62,6 @@ struct ualt_cmsg_heartbeat {
 };
 
 #define UALT_PORTID_VLAN		GENMASK(18, 9)
-#define UALT_NICMOD_PORT		BIT(7)
 
 static int scratchpad;
 
@@ -119,8 +118,14 @@ int ualt_cmsg_port(struct nfp_repr *repr, unsigned int port_id, u8 rx_vnic,
 	msg->port_id = port_id;
 	msg->nbi = eth_port->nbi;
 	msg->port = eth_port->eth_index;
-	if (dev_ctx->type == NFP_MBL_DEV_TYPE_NICMOD)
-		msg->port |= UALT_NICMOD_PORT;
+	if (dev_ctx->type == NFP_MBL_DEV_TYPE_NICMOD) {
+		if (dev_ctx->dev_id == 0)
+			msg->port |= NFP_MBL_PORTEX_0_PORT_OFFSET;
+		else if (dev_ctx->dev_id == 1)
+			msg->port |= NFP_MBL_PORTEX_1_PORT_OFFSET;
+		else
+			return -EINVAL;
+	}
 	msg->pcie = rx_vnic;
 	msg->flags = flags;
 
