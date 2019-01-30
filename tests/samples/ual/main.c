@@ -225,7 +225,6 @@ static int ualt_init(void *cookie, enum nfp_mbl_status_type status)
 	version = nfp_rtsym_read_le(app->pf->rtbl, "_ualt_version", &err);
 	if (err) {
 		pr_warn("%s requires _ualt_version memory symbol\n", UALT_NAME);
-		return err;
 	}
 
 	pr_info("starting %s version %02llx\n", UALT_NAME, version);
