@@ -119,7 +119,8 @@ nfp_repr_get_stats64(struct net_device *netdev, struct rtnl_link_stats64 *stats)
 
 	switch (repr->port->type) {
 	case NFP_PORT_PHYS_PORT:
-		if (!__nfp_port_get_eth_port(repr->port))
+		if (!__nfp_port_get_eth_port(repr->port) ||
+		    !nfp_port_has_mac_stats(repr->port))
 			break;
 		nfp_repr_phy_port_get_stats64(repr->port, stats);
 		break;
