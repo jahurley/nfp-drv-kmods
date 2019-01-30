@@ -684,8 +684,6 @@ static int nfp_mbl_app_init(struct nfp_app *app)
 
 		if (!pf->mac_stats_bar && type == NFP_MBL_DEV_TYPE_MASTER_PF) {
 			nfp_warn(app->cpp, "MBL requires mac_stats BAR\n");
-			err = -EINVAL;
-			goto err_dealloc_dev_ctx;
 		}
 	}
 
