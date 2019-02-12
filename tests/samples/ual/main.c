@@ -51,7 +51,7 @@ struct ualt_cmsg_port {
 	u32 port_id;
 	u8 flags;
 	u8 pcie;
-	u8 nbi;
+	u8 resv;
 	u8 port;
 };
 
@@ -116,7 +116,7 @@ int ualt_cmsg_port(struct nfp_repr *repr, unsigned int port_id, u8 rx_vnic,
 
 	msg = ualt_cmsg_get_data(skb);
 	msg->port_id = port_id;
-	msg->nbi = eth_port->nbi;
+	msg->resv = 0;
 	msg->port = eth_port->eth_index;
 	if (dev_ctx->type == NFP_MBL_DEV_TYPE_NICMOD) {
 		if (dev_ctx->dev_id == 0)
